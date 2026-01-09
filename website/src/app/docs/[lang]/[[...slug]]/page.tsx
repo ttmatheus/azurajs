@@ -50,11 +50,47 @@ export async function generateMetadata(props: { params: Promise<{ lang: string; 
   const page = source.getPage(params.slug);
   if (!page) notFound();
 
+  const langName = params.lang === 'pt' ? 'pt-BR' : 'en-US';
+  const ogImage = getPageImage(page).url;
+
   return {
     title: page.data.title,
     description: page.data.description,
+    keywords: [
+      'AzuraJS',
+      'documentation',
+      page.data.title,
+      'Node.js',
+      'Bun',
+      'TypeScript',
+      'framework',
+      'REST API',
+    ],
+    authors: [{ name: 'AzuraJS Team' }],
     openGraph: {
-      images: getPageImage(page).url,
+      title: `${page.data.title} | AzuraJS Docs`,
+      description: page.data.description,
+      type: 'article',
+      locale: langName,
+      images: ogImage,
+      siteName: 'AzuraJS Documentation',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${page.data.title} | AzuraJS Docs`,
+      description: page.data.description,
+      images: ogImage,
+    },
+    alternates: {
+      canonical: `/docs/${params.lang}/${params.slug?.join('/')}`,
+      languages: {
+        'en-US': `/docs/en/${params.slug?.join('/')}`,
+        'pt-BR': `/docs/pt/${params.slug?.join('/')}`,
+      },
+    },
+    robots: {
+      index: true,
+      follow: true,
     },
   };
 }

@@ -67,7 +67,7 @@ import { Router } from "azurajs/router";
 ### 1. Create `azura.config.ts`
 
 ```typescript
-import type { ConfigTypes } from "azurajs";
+import type { ConfigTypes } from "azurajs/config";
 
 const config: ConfigTypes = {
   environment: "development",
@@ -100,19 +100,10 @@ export default config;
 ### 2. Create your server
 
 ```typescript
-import { 
-  AzuraClient, 
-  Controller, 
-  Get, 
-  Post, 
-  Body, 
-  Param, 
-  Query, 
-  Res,
-  applyDecorators,
-  createLoggingMiddleware 
-} from "azurajs";
-import type { ResponseServer } from "azurajs";
+import { AzuraClient, applyDecorators } from "azurajs";
+import { Controller, Get, Post, Body, Param, Query, Res } from "azurajs/decorators";
+import { createLoggingMiddleware } from "azurajs/middleware";
+import type { ResponseServer } from "azurajs/types";
 
 @Controller("/api")
 class UserController {
@@ -349,7 +340,7 @@ res.location(url: string)
 ### Middleware
 
 ```typescript
-import { createLoggingMiddleware } from "azurajs";
+import { createLoggingMiddleware } from "azurajs/middleware";
 
 const app = new AzuraClient();
 
@@ -416,8 +407,9 @@ type ConfigTypes = {
 ### Complete CRUD API
 
 ```typescript
-import { AzuraClient, Controller, Get, Post, Put, Delete, Body, Param, Res, applyDecorators } from "azurajs";
-import type { ResponseServer } from "azurajs";
+import { AzuraClient, applyDecorators } from "azurajs";
+import { Controller, Get, Post, Put, Delete, Body, Param, Res } from "azurajs/decorators";
+import type { ResponseServer } from "azurajs/types";
 
 interface User {
   id: number;
@@ -563,12 +555,9 @@ AzuraJS is designed for high performance:
 Full TypeScript support with complete type definitions:
 
 ```typescript
-import type { 
-  RequestServer, 
-  ResponseServer, 
-  ConfigTypes, 
-  RequestHandler 
-} from "azurajs";
+import type { RequestServer, ResponseServer } from "azurajs/types";
+import type { ConfigTypes } from "azurajs/config";
+import type { RequestHandler } from "azurajs/types";
 ```
 
 > ⚠️ Azura is TypeScript-only.

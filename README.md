@@ -1,507 +1,149 @@
 <div align="center">
   <a href="https://azura.js.org">
-    <img src="website/public/azurajs.png" width="500" height="auto" alt="azurajs"/>
+    <img src="website/public/azurajs.png" width="500" height="auto" alt="AzuraJS"/>
   </a>
 </div>
 
 <hr />
 
-⚡ Azura is Modern, fast, and TypeScript-first web framework for Node.js and Bun with decorator-based routing.
-
 [![NPM Version](https://img.shields.io/npm/v/azurajs)](https://www.npmjs.com/package/azurajs)
+[![NPM Downloads](https://img.shields.io/npm/dm/azurajs)](https://www.npmjs.com/package/azurajs)
 [![License](https://img.shields.io/npm/l/azurajs)](https://github.com/0xviny/azurajs/blob/main/LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue)](https://www.typescriptlang.org/)
+[![Bundle Size](https://img.shields.io/bundlephobia/minzip/azurajs)](https://bundlephobia.com/result?p=azurajs)
+[![Discord](https://img.shields.io/discord/1459038905667162223?label=Discord&logo=Discord)](https://discord.gg/gr63YzEYfp)
 
-## Features
+AzuraJS - _**means sky blue 🌌 in many languages**_ - is a minimal, decorator-based web framework built for TypeScript. It works on any JavaScript runtime: Node.js, Bun, Deno, Cloudflare Workers, Vercel Edge, and AWS Lambda.
 
-✨ **Decorator-based routing** - Express-style syntax with TypeScript decorators  
-🚀 **High performance** - Built for speed with minimal overhead  
-📦 **Zero dependencies** - Lightweight and efficient  
-🔧 **TypeScript first** - Full type safety out of the box  
-🎯 **Parameter injection** - `@Body`, `@Query`, `@Param`, `@Req`, `@Res`, etc.  
-🔌 **Middleware support** - Express-compatible middleware system  
-⚙️ **Configurable** - File-based configuration (TS, JSON, YAML)  
-🍪 **Cookie handling** - Built-in cookie parser and serializer  
-🌐 **Cluster mode** - Multi-core support built-in  
-📝 **Smart logging** - Environment-aware request/response logging  
+Elegant, type-safe, and blazing fast.
 
-## Installation
+```typescript
+import { AzuraClient } from "azurajs";
+import { Controller, Get } from "azurajs/decorators";
+
+@Controller()
+class AppController {
+  @Get("/")
+  home() {
+    return { message: "Hello AzuraJS! 🚀" };
+  }
+}
+
+const app = new AzuraClient();
+app.applyDecorators([AppController]);
+
+export default app;
+```
+
+## Quick Start
 
 ```bash
 npm install azurajs
 ```
 
-or with Bun:
+## Features
 
-```bash
-bun add azurajs
-```
+- **Zero Dependencies** 📦 - No external dependencies. Lightweight and efficient.
+- **Decorator-Based** 🎯 - Clean, intuitive routing with TypeScript decorators.
+- **Type-Safe** 🛡️ - Full TypeScript support with complete type inference.
+- **Multi-Runtime** 🌍 - Works on Node.js, Bun, Deno, Cloudflare Workers, Vercel Edge, and more.
+- **High Performance** ⚡ - Built for speed with minimal overhead and optimized routing.
+- **Modular Imports** 🔧 - Tree-shakeable imports for optimal bundle size (70% smaller).
+- **Built-in Features** 🔋 - CORS, Rate Limiting, Cookie handling, Cluster mode, and more.
+- **Developer Experience** 😊 - Intuitive APIs with excellent IntelliSense support.
 
-## Quick Start
+## Documentation
 
-### 1. Create `azura.config.ts`
+The documentation is available on [azura.js.org](https://azura.js.org).
 
-```typescript
-import type { ConfigTypes } from "azurajs";
-
-const config: ConfigTypes = {
-  environment: "development",
-  server: {
-    port: 3000,
-    cluster: false,
-    ipHost: true,
-    https: false,
-  },
-  logging: {
-    enabled: true,
-    showDetails: true,
-  },
-  plugins: {
-    cors: {
-      enabled: true,
-      origins: ["*"],
-    },
-    rateLimit: {
-      enabled: false,
-      limit: 100,
-      timeframe: 60000,
-    },
-  },
-};
-
-export default config;
-```
-
-### 2. Create your server
+## Example
 
 ```typescript
-import { 
-  AzuraClient, 
-  Controller, 
-  Get, 
-  Post, 
-  Body, 
-  Param, 
-  Query, 
-  Res,
-  applyDecorators,
-  createLoggingMiddleware 
-} from "azurajs";
+import { AzuraClient, applyDecorators } from "azurajs";
+import { Controller, Get, Post, Body, Param, Res } from "azurajs/decorators";
+import { HttpError } from "azurajs/http-error";
 import type { ResponseServer } from "azurajs";
-
-@Controller("/api")
-class UserController {
-  @Get("/users")
-  getAllUsers(@Res() res: ResponseServer) {
-    res.json({ 
-      users: [
-        { id: 1, name: "John" },
-        { id: 2, name: "Jane" }
-      ] 
-    });
-  }
-
-  @Get("/users/:id")
-  getUser(@Param("id") id: string, @Res() res: ResponseServer) {
-    res.json({ id: Number(id), name: `User ${id}` });
-  }
-
-  @Post("/users")
-  createUser(@Body() body: any, @Res() res: ResponseServer) {
-    res.status(201).json({ 
-      id: Date.now(), 
-      ...body 
-    });
-  }
-}
-
-const app = new AzuraClient();
-const logger = createLoggingMiddleware(app.getConfig());
-app.use(logger);
-applyDecorators(app, [UserController]);
-await app.listen();
-```
-
-### 3. Run your server
-
-```bash
-bun run index.ts
-```
-
-## API Reference
-
-### Decorators
-
-#### Class Decorators
-
-**`@Controller(prefix?: string)`**
-
-Define a controller with optional route prefix.
-
-```typescript
-@Controller("/api/v1")
-class MyController {
-
-}
-```
-
-#### Method Decorators
-
-**HTTP Methods:**
-- `@Get(path?: string)`
-- `@Post(path?: string)`
-- `@Put(path?: string)`
-- `@Delete(path?: string)`
-- `@Patch(path?: string)`
-- `@Head(path?: string)`
-- `@Options(path?: string)`
-
-```typescript
-@Get("/users")
-getUsers() { }
-
-@Post("/users/:id")
-updateUser() { }
-```
-
-#### Parameter Decorators
-
-**`@Req()`** - Inject request object
-
-```typescript
-@Get("/info")
-getInfo(@Req() req: RequestServer) {
-  console.log(req.method, req.url);
-}
-```
-
-**`@Res()`** - Inject response object
-
-```typescript
-@Get("/data")
-getData(@Res() res: ResponseServer) {
-  res.json({ data: "value" });
-}
-```
-
-**`@Body()`** - Inject request body
-
-```typescript
-@Post("/users")
-createUser(@Body() body: any) {
-  console.log(body);
-}
-```
-
-**`@Query(key?: string)`** - Inject query parameters
-
-```typescript
-@Get("/search")
-search(@Query("q") query: string) {
-  console.log(query);
-}
-
-@Get("/filter")
-filter(@Query() allParams: Record<string, string>) {
-  console.log(allParams);
-}
-```
-
-**`@Param(key: string)`** - Inject route parameters
-
-```typescript
-@Get("/users/:id")
-getUser(@Param("id") id: string) {
-  console.log(id);
-}
-```
-
-**`@Headers(key?: string)`** - Inject headers
-
-```typescript
-@Get("/info")
-getInfo(@Headers("user-agent") ua: string) {
-  console.log(ua);
-}
-```
-
-**`@Ip()`** - Inject client IP address
-
-```typescript
-@Get("/visitor")
-trackVisitor(@Ip() ip: string) {
-  console.log(`Visitor from ${ip}`);
-}
-```
-
-### Response Methods
-
-```typescript
-res.status(code: number)
-res.json(data: any)
-res.send(data: any)
-res.redirect(url: string)
-res.redirect(status: number, url: string)
-res.cookie(name: string, value: string, options?: CookieOptions)
-res.clearCookie(name: string, options?: CookieOptions)
-res.set(field: string, value: string | number | string[])
-res.get(field: string)
-res.type(contentType: string)
-res.location(url: string)
-```
-
-### Middleware
-
-```typescript
-import { createLoggingMiddleware } from "azurajs";
-
-const app = new AzuraClient();
-
-const logger = createLoggingMiddleware(app.getConfig());
-app.use(logger);
-
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.url}`);
-  next();
-});
-```
-
-### Functional Routes
-
-```typescript
-app.get("/hello", (req, res) => {
-  res.json({ message: "Hello World" });
-});
-
-app.post("/data", (req, res) => {
-  res.json({ received: req.body });
-});
-```
-
-## Configuration
-
-The framework looks for configuration files in this order:
-1. `azura.config.ts`
-2. `azura.config.json`
-3. `azura.config.yaml`
-4. `azura.config.yml`
-
-### Configuration Options
-
-```typescript
-type ConfigTypes = {
-  environment?: "development" | "production";
-  server?: {
-    port?: number;
-    cluster?: boolean;
-    ipHost?: boolean;
-    https?: boolean;
-  };
-  logging?: {
-    enabled?: boolean;
-    showDetails?: boolean;
-  };
-  plugins?: {
-    cors?: {
-      enabled: boolean;
-      origins: string[];
-    };
-    rateLimit?: {
-      enabled: boolean;
-      limit: number;
-      timeframe: number;
-    };
-  };
-};
-```
-
-## Examples
-
-### Complete CRUD API
-
-```typescript
-import { AzuraClient, Controller, Get, Post, Put, Delete, Body, Param, Res, applyDecorators } from "azurajs";
-import type { ResponseServer } from "azurajs";
-
-interface User {
-  id: number;
-  name: string;
-  email: string;
-}
-
-const users: User[] = [];
 
 @Controller("/api/users")
 class UserController {
-  @Get("/")
-  list(@Res() res: ResponseServer) {
-    res.json(users);
+  @Get()
+  getAll(@Res() res: ResponseServer) {
+    res.json({ users: [] });
   }
 
   @Get("/:id")
-  get(@Param("id") id: string, @Res() res: ResponseServer) {
-    const user = users.find(u => u.id === Number(id));
-    if (!user) return res.status(404).json({ error: "User not found" });
-    res.json(user);
+  getOne(@Param("id") id: string, @Res() res: ResponseServer) {
+    if (id === "0") throw new HttpError(404, "User not found");
+    res.json({ id, name: `User ${id}` });
   }
 
-  @Post("/")
-  create(@Body() body: Omit<User, "id">, @Res() res: ResponseServer) {
-    const user = { id: Date.now(), ...body };
-    users.push(user);
-    res.status(201).json(user);
-  }
-
-  @Put("/:id")
-  update(@Param("id") id: string, @Body() body: Partial<User>, @Res() res: ResponseServer) {
-    const index = users.findIndex(u => u.id === Number(id));
-    if (index === -1) return res.status(404).json({ error: "User not found" });
-    users[index] = { ...users[index], ...body };
-    res.json(users[index]);
-  }
-
-  @Delete("/:id")
-  delete(@Param("id") id: string, @Res() res: ResponseServer) {
-    const index = users.findIndex(u => u.id === Number(id));
-    if (index === -1) return res.status(404).json({ error: "User not found" });
-    users.splice(index, 1);
-    res.status(204).send();
+  @Post()
+  create(@Body() body: any, @Res() res: ResponseServer) {
+    res.status(201).json({ id: Date.now(), ...body });
   }
 }
 
 const app = new AzuraClient();
 applyDecorators(app, [UserController]);
-await app.listen();
+
+await app.listen(3000);
 ```
 
-### Authentication Example
+## Universal Runtime Support
+
+AzuraJS works seamlessly across all JavaScript runtimes using the Web Standard Fetch API:
 
 ```typescript
-@Controller("/auth")
-class AuthController {
-  @Post("/login")
-  login(@Body() body: any, @Res() res: ResponseServer) {
-    const token = generateToken(body.username, body.password);
-    res.cookie("auth_token", token, {
-      httpOnly: true,
-      maxAge: 3600000,
-      secure: true,
-    });
-    res.json({ success: true });
-  }
+// Bun
+Bun.serve({ fetch: app.fetch.bind(app), port: 3000 });
 
-  @Post("/logout")
-  logout(@Res() res: ResponseServer) {
-    res.clearCookie("auth_token");
-    res.json({ success: true });
-  }
+// Deno
+Deno.serve({ port: 3000 }, app.fetch.bind(app));
 
-  @Get("/profile")
-  profile(@Req() req: RequestServer, @Res() res: ResponseServer) {
-    const token = req.cookies.auth_token;
-    if (!token) return res.status(401).json({ error: "Unauthorized" });
-    const user = verifyToken(token);
-    res.json(user);
-  }
-}
+// Cloudflare Workers
+export default { fetch: app.fetch.bind(app) };
 ```
 
-### File Upload Example
+## Why AzuraJS?
 
-```typescript
-@Controller("/upload")
-class UploadController {
-  @Post("/")
-  async upload(@Req() req: RequestServer, @Res() res: ResponseServer) {
-    const contentType = req.get("content-type") || "";
-    
-    if (contentType.includes("multipart/form-data")) {
-      res.json({ message: "File uploaded successfully" });
-    } else {
-      res.status(400).json({ error: "Invalid content type" });
-    }
-  }
-}
-```
+- **Decorator-First Design** - Express-style routing with modern TypeScript decorators
+- **Zero Boilerplate** - Write less code, ship faster
+- **Universal** - One codebase, runs everywhere
+- **Production Ready** - Built-in cluster mode, CORS, rate limiting, and more
+- **Tree-Shakeable** - Modular imports reduce bundle size by up to 70%
 
-## Production Mode
+## Community
 
-```bash
-NODE_ENV=production bun run index.ts
-```
-
-Or in your config:
-
-```typescript
-const config: ConfigTypes = {
-  environment: process.env.NODE_ENV === "production" ? "production" : "development",
-  logging: {
-    enabled: true,
-    showDetails: process.env.NODE_ENV !== "production",
-  },
-};
-```
-
-## Cluster Mode
-
-Enable cluster mode for multi-core systems:
-
-```typescript
-const config: ConfigTypes = {
-  server: {
-    cluster: true,
-  },
-};
-```
-
-## Performance
-
-AzuraJS is designed for high performance:
-- Zero runtime dependencies
-- Optimized routing with radix tree
-- Minimal overhead middleware system
-- Native Node.js http module
-
-## TypeScript Support
-
-Full TypeScript support with complete type definitions:
-
-```typescript
-import type { 
-  RequestServer, 
-  ResponseServer, 
-  ConfigTypes, 
-  RequestHandler 
-} from "azurajs";
-```
-
-> ⚠️ Azura is TypeScript-only.
-
-> This package ships uncompiled TypeScript source code.
-> You must use a runtime or build tool that supports TypeScript:
-> - Bun
-> - ts-node
-> - tsx
-> - Deno
-> - Vite
+- 📚 [Documentation](https://azura.js.org/docs/en)
+- 💬 [Discord](https://discord.gg/gr63YzEYfp)
+- 🐦 [Twitter](https://twitter.com/azurajs)
+- 📦 [NPM](https://www.npmjs.com/package/azurajs)
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! You can contribute in the following ways:
+
+- Create an Issue - Propose a new feature or report a bug
+- Pull Request - Fix a bug, add a feature, or improve documentation
+- Share - Share your thoughts and projects built with AzuraJS
+- Spread the word - Star the repo and share with others
+
+For more details, see [CONTRIBUTING.md](docs/CONTRIBUTING.md).
+
+## Contributors
+
+Thanks to [all contributors](https://github.com/0xviny/azurajs/graphs/contributors) who help make AzuraJS better!
+
+## Author
+
+Created by **0xviny** <https://github.com/0xviny>
 
 ## License
 
-MIT License - see LICENSE file for details
+Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
 
-## Links
+---
 
-- [GitHub Repository](https://github.com/0xviny/azurajs)
-- [NPM Package](https://www.npmjs.com/package/azurajs)
-- [Documentation](https://azura.js.org/docs/en)
-- [Examples](https://github.com/0xviny/azurajs/tree/main/examples)
-
-## Support
-
-- 🐛 [Issue Tracker](https://github.com/0xviny/azurajs/issues)
-- 💬 [Discussions](https://github.com/0xviny/azurajs/discussions)
-- 📧 Email: 0xviny.dev@gmail.com
+<div align="center">
+  <sub>Built with ❤️ by the 0xviny & AzuraJS team</sub>
+</div>

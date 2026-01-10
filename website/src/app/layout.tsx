@@ -41,10 +41,11 @@ export const metadata: Metadata = {
     siteName: "AzuraJS",
     images: [
       {
-        url: "/logo.png",
-        width: 512,
-        height: 512,
+        url: "https://azura.js.org/logo.png",
+        width: 256,
+        height: 256,
         alt: "AzuraJS Framework",
+        type: "image/png",
       },
     ],
   },
@@ -53,7 +54,7 @@ export const metadata: Metadata = {
     title: "AzuraJS - Minimal Decorator-Based Framework",
     description:
       "Build faster with AzuraJS. The minimal, decorator-based framework for Node.js & Bun with full type-safety.",
-    images: ["/logo.png"],
+    images: ["https://azura.js.org/logo.png"],
     creator: "@azurajs",
   },
   robots: {

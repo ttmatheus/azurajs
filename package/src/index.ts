@@ -1,6 +1,5 @@
-// Core Server & Router
-export * from "./infra/Server";
-export { Router } from "./infra/Router";
+// Core Infrastructure
+export * from "./infra";
 
 // Decorators
 export * from "./decorators";
@@ -9,20 +8,10 @@ export * from "./decorators";
 export * from "./middleware";
 
 // Types
-export * from "./types/http/request.type";
-export * from "./types/http/response.type";
-export * from "./types/common.type";
-export * from "./types/routes.type";
-export * from "./types/validations.type";
+export * from "./types";
 
 // Configuration
-export * from "./shared/config/ConfigModule";
+export * from "./shared/config";
 
 // Utils
-export { logger } from "./utils/Logger";
-export { parseQS } from "./utils/Parser";
-export { HttpError } from "./infra/utils/HttpError";
-export { parseCookiesHeader } from "./utils/cookies/ParserCookie";
-export { serializeCookie } from "./utils/cookies/SerializeCookie";
-export { validateSchema } from "./utils/validators/SchemaValidator";
-export { validateDto, getDtoValidators } from "./utils/validators/DTOValidator";
+export * from "./utils";

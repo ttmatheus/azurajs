@@ -1,0 +1,32 @@
+{
+  "name": "azurajs-benchmark",
+  "version": "1.0.0",
+  "description": "Performance benchmark comparison: AzuraJS vs Elysia vs Hono vs Fastify vs Express",
+  "type": "module",
+  "scripts": {
+    "bench": "node benchmark.js",
+    "bench:all": "node benchmark.js --all",
+    "start:azura": "tsx servers/azura.ts",
+    "start:elysia": "bun servers/elysia.ts",
+    "start:hono": "node servers/hono.js",
+    "start:fastify": "node servers/fastify.js",
+    "start:express": "node servers/express.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.8",
+    "azurajs": "^2.0.0",
+    "elysia": "^1.1.31",
+    "express": "^4.21.2",
+    "fastify": "^5.2.1",
+    "hono": "^4.6.14"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.5",
+    "autocannon": "^7.15.0",
+    "chalk": "^5.3.0",
+    "ora": "^8.1.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

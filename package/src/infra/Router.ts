@@ -34,23 +34,31 @@ export class Router {
   find(method: string, path: string): MatchResult {
     const segments = path.split("/").filter(Boolean);
     let node = this.root;
-
     const params: Record<string, string> = {};
-    for (const seg of segments) {
-      if (node.children.has(seg)) {
-        node = node.children.get(seg)!;
-      } else if (node.children.has(":")) {
-        node = node.children.get(":")!;
-
-        if (node.isParam && node.paramName) {
-          params[node.paramName] = seg;
-        }
+    
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      let child = node.children.get(seg);
+      
+      if (child) {
+        node = child;
       } else {
-        throw new HttpError(404, "Route not found");
+        child = node.children.get(":");
+        if (child) {
+          node = child;
+          if (node.paramName) {
+            params[node.paramName] = seg;
+          }
+        } else {
+          throw new HttpError(404, "Route not found");
+        }
       }
     }
 
     const handlers = node.handlers.get(method.toUpperCase()) as Handler[];
+    if (!handlers) {
+      throw new HttpError(404, "Route not found");
+    }
     return { handlers, params };
   }
 }

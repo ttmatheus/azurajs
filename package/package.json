@@ -1,86 +1,136 @@
 {
   "name": "azurajs",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Modern TypeScript-first web framework with decorator-based routing, zero dependencies, and built for performance",
-  "main": "src/index.ts",
-  "module": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
   "type": "module",
   "exports": {
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts",
-      "require": "./src/index.ts"
+      "default": "./src/index.ts"
     },
     "./decorators": {
       "types": "./src/decorators/index.ts",
       "import": "./src/decorators/index.ts",
-      "require": "./src/decorators/index.ts"
+      "default": "./src/decorators/index.ts"
     },
     "./middleware": {
       "types": "./src/middleware/index.ts",
       "import": "./src/middleware/index.ts",
-      "require": "./src/middleware/index.ts"
+      "default": "./src/middleware/index.ts"
     },
     "./types": {
-      "types": "./src/types/common.type.ts",
-      "import": "./src/types/common.type.ts",
-      "require": "./src/types/common.type.ts"
+      "types": "./src/types/index.ts",
+      "import": "./src/types/index.ts",
+      "default": "./src/types/index.ts"
+    },
+    "./infra": {
+      "types": "./src/infra/index.ts",
+      "import": "./src/infra/index.ts",
+      "default": "./src/infra/index.ts"
     },
     "./router": {
       "types": "./src/infra/Router.ts",
       "import": "./src/infra/Router.ts",
-      "require": "./src/infra/Router.ts"
+      "default": "./src/infra/Router.ts"
     },
     "./config": {
-      "types": "./src/shared/config/ConfigModule.ts",
-      "import": "./src/shared/config/ConfigModule.ts",
-      "require": "./src/shared/config/ConfigModule.ts"
+      "types": "./src/shared/config/index.ts",
+      "import": "./src/shared/config/index.ts",
+      "default": "./src/shared/config/index.ts"
+    },
+    "./plugins": {
+      "types": "./src/shared/plugins/index.ts",
+      "import": "./src/shared/plugins/index.ts",
+      "default": "./src/shared/plugins/index.ts"
     },
     "./cors": {
       "types": "./src/shared/plugins/CORSPlugin.ts",
       "import": "./src/shared/plugins/CORSPlugin.ts",
-      "require": "./src/shared/plugins/CORSPlugin.ts"
+      "default": "./src/shared/plugins/CORSPlugin.ts"
     },
     "./rate-limit": {
       "types": "./src/shared/plugins/RateLimitPlugin.ts",
       "import": "./src/shared/plugins/RateLimitPlugin.ts",
-      "require": "./src/shared/plugins/RateLimitPlugin.ts"
+      "default": "./src/shared/plugins/RateLimitPlugin.ts"
+    },
+    "./utils": {
+      "types": "./src/utils/index.ts",
+      "import": "./src/utils/index.ts",
+      "default": "./src/utils/index.ts"
     },
     "./cookies": {
-      "types": "./src/utils/cookies/ParserCookie.ts",
-      "import": "./src/utils/cookies/ParserCookie.ts",
-      "require": "./src/utils/cookies/ParserCookie.ts"
+      "types": "./src/utils/cookies/index.ts",
+      "import": "./src/utils/cookies/index.ts",
+      "default": "./src/utils/cookies/index.ts"
     },
     "./validators": {
-      "types": "./src/utils/validators/DTOValidator.ts",
-      "import": "./src/utils/validators/DTOValidator.ts",
-      "require": "./src/utils/validators/DTOValidator.ts"
+      "types": "./src/utils/validators/index.ts",
+      "import": "./src/utils/validators/index.ts",
+      "default": "./src/utils/validators/index.ts"
     },
     "./logger": {
       "types": "./src/utils/Logger.ts",
       "import": "./src/utils/Logger.ts",
-      "require": "./src/utils/Logger.ts"
+      "default": "./src/utils/Logger.ts"
     },
     "./http-error": {
       "types": "./src/infra/utils/HttpError.ts",
       "import": "./src/infra/utils/HttpError.ts",
-      "require": "./src/infra/utils/HttpError.ts"
-    }
+      "default": "./src/infra/utils/HttpError.ts"
+    },
+    "./package.json": "./package.json"
   },
   "typesVersions": {
     "*": {
-      "decorators": ["./src/decorators/index.ts"],
-      "middleware": ["./src/middleware/index.ts"],
-      "types": ["./src/types/common.type.ts"],
-      "router": ["./src/infra/Router.ts"],
-      "config": ["./src/shared/config/ConfigModule.ts"],
-      "cors": ["./src/shared/plugins/CORSPlugin.ts"],
-      "rate-limit": ["./src/shared/plugins/RateLimitPlugin.ts"],
-      "cookies": ["./src/utils/cookies/ParserCookie.ts"],
-      "validators": ["./src/utils/validators/DTOValidator.ts"],
-      "logger": ["./src/utils/Logger.ts"],
-      "http-error": ["./src/infra/utils/HttpError.ts"]
+      "*": [
+        "./src/*"
+      ],
+      "decorators": [
+        "./src/decorators/index.ts"
+      ],
+      "middleware": [
+        "./src/middleware/index.ts"
+      ],
+      "types": [
+        "./src/types/index.ts"
+      ],
+      "infra": [
+        "./src/infra/index.ts"
+      ],
+      "router": [
+        "./src/infra/Router.ts"
+      ],
+      "config": [
+        "./src/shared/config/index.ts"
+      ],
+      "plugins": [
+        "./src/shared/plugins/index.ts"
+      ],
+      "cors": [
+        "./src/shared/plugins/CORSPlugin.ts"
+      ],
+      "rate-limit": [
+        "./src/shared/plugins/RateLimitPlugin.ts"
+      ],
+      "utils": [
+        "./src/utils/index.ts"
+      ],
+      "cookies": [
+        "./src/utils/cookies/index.ts"
+      ],
+      "validators": [
+        "./src/utils/validators/index.ts"
+      ],
+      "logger": [
+        "./src/utils/Logger.ts"
+      ],
+      "http-error": [
+        "./src/infra/utils/HttpError.ts"
+      ]
     }
   },
   "files": [

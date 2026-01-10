@@ -1,0 +1,13 @@
+{
+  "environment": "production",
+  "server": {
+    "port": 3000,
+    "cluster": false,
+    "ipHost": false,
+    "https": false
+  },
+  "logging": {
+    "enabled": false,
+    "showDetails": false
+  }
+}

@@ -28,7 +28,7 @@ export default function HomePage() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
             </span>
-            v2.0.0 Public Beta is live
+            v2.1.0 Public Beta is live
           </div>
 
           {/* Title */}
@@ -167,7 +167,7 @@ export default function HomePage() {
             <StatItem value="100%" label="TypeScript" />
             <StatItem value="0" label="Dependencies" />
             <StatItem value="MIT" label="License" />
-            <StatItem value="v2.0.0" label="Release" />
+            <StatItem value="v2.1.0" label="Release" />
           </div>
 
           <p className="text-neutral-600 text-sm">

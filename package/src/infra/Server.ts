@@ -139,14 +139,15 @@ export class AzuraClient {
     await this.initPromise;
 
     const url = new URL(request.url);
-    const [urlPath, qs] = url.pathname.split("?");
+    const urlPath = url.pathname;
     
-    // Parse query
-    const rawQuery = parseQS(url.search.slice(1) || "");
     const safeQuery: Record<string, string> = {};
-    for (const k in rawQuery) {
-      const v = rawQuery[k];
-      safeQuery[k] = Array.isArray(v) ? v[0] || "" : (v as string) || "";
+    if (url.search) {
+      const rawQuery = parseQS(url.search.slice(1));
+      for (const k in rawQuery) {
+        const v = rawQuery[k];
+        safeQuery[k] = Array.isArray(v) ? v[0] || "" : v as string;
+      }
     }
 
     const cookieHeader = request.headers.get("cookie") || "";
@@ -202,7 +203,6 @@ export class AzuraClient {
       ips: request.headers.get("x-forwarded-for")?.split(/\s*,\s*/) || [],
     };
 
-    // Response builder
     let statusCode = 200;
     const responseHeaders = new Headers();
     let responseBody: any = null;

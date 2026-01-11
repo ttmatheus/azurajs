@@ -12,8 +12,7 @@ Proper error handling ensures your API returns meaningful responses and stays re
 
 Use the built-in `HttpError` class for HTTP errors:
 
-<Tabs items={['TypeScript', 'JavaScript']}>
-<Tab value="TypeScript">
+### TypeScript
 
 ```typescript
 import { Get, Param, Res } from "azurajs/decorators";
@@ -32,8 +31,7 @@ getUser(@Param("id") id: string, @Res() res: ResponseServer) {
 }
 ```
 
-</Tab>
-<Tab value="JavaScript">
+### JavaScript
 
 ```javascript
 import { HttpError } from "azurajs/http-error";
@@ -50,15 +48,11 @@ app.get("/:id", (req, res) => {
 });
 ```
 
-</Tab>
-</Tabs>
-
 ## Try-Catch Blocks 🛡️
 
 Wrap async operations in try-catch:
 
-<Tabs items={['TypeScript', 'JavaScript']}>
-<Tab value="TypeScript">
+### TypeScript
 
 ```typescript
 @Post()
@@ -76,8 +70,7 @@ async createUser(@Body() data: any, @Res() res: ResponseServer) {
 }
 ```
 
-</Tab>
-<Tab value="JavaScript">
+### JavaScript
 
 ```javascript
 app.post("/users", async (req, res) => {
@@ -93,9 +86,6 @@ app.post("/users", async (req, res) => {
   }
 });
 ```
-
-</Tab>
-</Tabs>
 
 ## Error Response Format 📋
 
@@ -141,8 +131,7 @@ getUser(@Param("id") id: string, @Res() res: ResponseServer) {
 
 Create a global error handling middleware:
 
-<Tabs items={['TypeScript', 'JavaScript']}>
-<Tab value="TypeScript">
+### TypeScript
 
 ```typescript
 import { HttpError } from "azurajs/http-error";
@@ -182,8 +171,7 @@ const app = new AzuraClient();
 app.use(errorHandler);
 ```
 
-</Tab>
-<Tab value="JavaScript">
+### JavaScript
 
 ```javascript
 import { HttpError } from "azurajs/http-error";
@@ -221,9 +209,6 @@ export const errorHandler = async (req, res, next) => {
 const app = new AzuraClient();
 app.use(errorHandler);
 ```
-
-</Tab>
-</Tabs>
 
 ## Validation Errors ✅
 

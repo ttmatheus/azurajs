@@ -10,8 +10,7 @@ Real-world examples to help you build with AzuraJS.
 
 ## Complete REST API Example 🎯
 
-<Tabs items={['TypeScript', 'JavaScript']}>
-<Tab value="TypeScript">
+### TypeScript
 
 ```typescript title="src/index.ts"
 import { AzuraClient, applyDecorators } from "azurajs";
@@ -165,8 +164,7 @@ applyDecorators(app, [PostController]);
 await app.listen();
 ```
 
-</Tab>
-<Tab value="JavaScript">
+### JavaScript
 
 ```javascript title="src/index.js"
 import { AzuraClient } from "azurajs";
@@ -289,9 +287,6 @@ app.get("/api/posts/search", (req, res) => {
 // Start server
 await app.listen();
 ```
-
-</Tab>
-</Tabs>
 
 ## Authentication Example 🔐
 

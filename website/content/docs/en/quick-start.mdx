@@ -8,25 +8,9 @@ icon: Rocket
 
 Build your first RESTful API with AzuraJS in just a few minutes!
 
-<Tabs items={['TypeScript', 'JavaScript']}>
-<Tab value="TypeScript">
-
-This guide shows how to use AzuraJS with TypeScript and decorators.
-
-</Tab>
-<Tab value="JavaScript">
-
-This guide shows how to use AzuraJS with plain JavaScript using the functional API.
-
-</Tab>
-</Tabs>
-
 ## Step 1: Create Configuration File ⚙️
 
-<Tabs items={['TypeScript', 'JavaScript']}>
-<Tab value="TypeScript">
-
-<Tab value="TypeScript">
+### TypeScript
 
 Create `azura.config.ts` in your project root:
 
@@ -63,8 +47,7 @@ const config: ConfigTypes = {
 export default config;
 ```
 
-</Tab>
-<Tab value="JavaScript">
+### JavaScript
 
 Create `azura.config.js` in your project root:
 
@@ -99,13 +82,9 @@ const config = {
 export default config;
 ```
 
-</Tab>
-</Tabs>
-
 ## Step 2: Create Your Server 🎯
 
-<Tabs items={['TypeScript', 'JavaScript']}>
-<Tab value="TypeScript">
+### TypeScript with Decorators
 
 Create controller with decorators in `src/controllers/UserController.ts`:
 
@@ -207,8 +186,7 @@ export class UserController {
 }
 ```
 
-</Tab>
-<Tab value="JavaScript">
+### JavaScript with Functional API
 
 Create server with functional routing in `src/index.js`:
 
@@ -312,17 +290,13 @@ app.delete("/api/users/:id", (req, res) => {
 await app.listen();
 ```
 
-</Tab>
-</Tabs>
-
 ## Step 3: Create Entry Point (TypeScript only) 🖥️
 
 <Callout type="info">
 For JavaScript, you already created the complete server in Step 2. For TypeScript with decorators, you need a separate entry point.
 </Callout>
 
-<Tabs items={['TypeScript', 'JavaScript']}>
-<Tab value="TypeScript">
+### TypeScript
 
 Create `src/index.ts`:
 
@@ -345,18 +319,13 @@ applyDecorators(app, [UserController]);
 await app.listen();
 ```
 
-</Tab>
-<Tab value="JavaScript">
+### JavaScript
 
 Your server is already complete in `src/index.js` from Step 2!
 
-</Tab>
-</Tabs>
-
 ## Step 4: Run Your Server 🏃
 
-<Tabs items={['TypeScript', 'JavaScript']}>
-<Tab value="TypeScript">
+### TypeScript
 
 Run your application:
 
@@ -376,8 +345,7 @@ npx tsx src/index.ts
 }
 ```
 
-</Tab>
-<Tab value="JavaScript">
+### JavaScript
 
 Run your application:
 
@@ -396,9 +364,6 @@ node src/index.js
   }
 }
 ```
-
-</Tab>
-</Tabs>
 
 You should see:
 
@@ -459,8 +424,7 @@ curl -X DELETE http://localhost:3000/api/users/2
 
 You've just built a complete RESTful API with AzuraJS! Here's what you learned:
 
-<Tabs items={['TypeScript', 'JavaScript']}>
-<Tab value="TypeScript">
+### TypeScript
 
 - ✅ How to configure AzuraJS
 - ✅ How to create controllers with decorators
@@ -468,17 +432,13 @@ You've just built a complete RESTful API with AzuraJS! Here's what you learned:
 - ✅ How to register controllers with `applyDecorators`
 - ✅ How to start the server
 
-</Tab>
-<Tab value="JavaScript">
+### JavaScript
 
 - ✅ How to configure AzuraJS
 - ✅ How to define routes with functional API
 - ✅ How to handle request parameters and body
 - ✅ How to use middleware
 - ✅ How to start the server
-
-</Tab>
-</Tabs>
 
 ## What's Next? 📚
 

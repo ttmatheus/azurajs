@@ -12,8 +12,7 @@ AzuraJS can be used with **any server** that supports the Web Fetch API, just li
 
 Bun provides a fast native HTTP server. Use AzuraJS with `Bun.serve`:
 
-<Tabs items={['TypeScript', 'JavaScript']}>
-<Tab value="TypeScript">
+### TypeScript
 
 ```typescript title="bun-server.ts"
 import { AzuraClient } from "azurajs";
@@ -47,8 +46,7 @@ const server = Bun.serve({
 console.log(`🚀 Server running on http://localhost:${server.port}`);
 ```
 
-</Tab>
-<Tab value="JavaScript">
+### JavaScript
 
 ```javascript title="bun-server.js"
 import { AzuraClient } from "azurajs";
@@ -82,9 +80,6 @@ const server = Bun.serve({
 console.log(`🚀 Server running on http://localhost:${server.port}`);
 ```
 
-</Tab>
-</Tabs>
-
 Run it:
 
 ```bash
@@ -102,8 +97,7 @@ bun run bun-server.ts  # or .js
 
 Deno is a secure runtime for JavaScript and TypeScript. Use AzuraJS with `Deno.serve`:
 
-<Tabs items={['TypeScript', 'JavaScript']}>
-<Tab value="TypeScript">
+### TypeScript
 
 ```typescript title="deno-server.ts"
 import { AzuraClient } from "azurajs";
@@ -127,8 +121,7 @@ Deno.serve({ port: 3000 }, app.fetch.bind(app));
 console.log("🦕 Server running on http://localhost:3000");
 ```
 
-</Tab>
-<Tab value="JavaScript">
+### JavaScript
 
 ```javascript title="deno-server.js"
 import { AzuraClient } from "azurajs";
@@ -152,9 +145,6 @@ Deno.serve({ port: 3000 }, app.fetch.bind(app));
 console.log("🦕 Server running on http://localhost:3000");
 ```
 
-</Tab>
-</Tabs>
-
 Run it:
 
 ```bash
@@ -172,8 +162,7 @@ deno run --allow-net --allow-read deno-server.ts  # or .js
 
 Deploy globally on Cloudflare's edge network:
 
-<Tabs items={['TypeScript', 'JavaScript']}>
-<Tab value="TypeScript">
+### TypeScript
 
 ```typescript title="worker.ts"
 import { AzuraClient } from "azurajs";
@@ -200,8 +189,7 @@ export default {
 };
 ```
 
-</Tab>
-<Tab value="JavaScript">
+### JavaScript
 
 ```javascript title="worker.js"
 import { AzuraClient } from "azurajs";
@@ -227,9 +215,6 @@ export default {
   fetch: app.fetch.bind(app),
 };
 ```
-
-</Tab>
-</Tabs>
 
 ### Why Use Cloudflare Workers?
 

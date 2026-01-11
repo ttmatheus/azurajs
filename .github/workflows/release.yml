@@ -19,15 +19,20 @@ jobs:
         with:
           node-version: 18
           registry-url: https://registry.npmjs.org/
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
 
       - name: Install dependencies
         working-directory: package
-        run: npm install
+        run: bun install
 
       - name: Build
         working-directory: package
-        run: npm run build
-
+        run: bun run build
+        
       - name: Publish to npm
         working-directory: package
         run: npm publish

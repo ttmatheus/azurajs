@@ -112,7 +112,7 @@ export class AzuraClient {
     }
   }
 
-  private addRoute(method: string, path: string, ...handlers: RequestHandler[]) {
+  public addRoute(method: string, path: string, ...handlers: RequestHandler[]) {
     const adapted = handlers.map(adaptRequestHandler);
     this.router.add(method, path, ...(adapted as unknown as Handler[]));
   }

@@ -16,25 +16,54 @@ AzuraJS supports modular imports for better tree-shaking and smaller bundle size
 
 Import everything from the main package:
 
+### TypeScript
+
 ```typescript
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
+```
+
+### JavaScript
+
+```javascript
+const { AzuraClient } = require("azurajs");
 ```
 
 ## Decorators
 
 Import decorators separately:
 
+### TypeScript
+
 ```typescript
 import { Controller, Get, Post, Put, Delete, Patch } from "azurajs/decorators";
 import { Body, Param, Query, Headers, Req, Res } from "azurajs/decorators";
+import { applyDecorators } from "azurajs/decorators";
+```
+
+### JavaScript
+
+```javascript
+// Not applicable - Decorators are a TypeScript feature
+// Use the functional API instead:
+const { AzuraClient } = require("azurajs");
+const app = new AzuraClient();
+app.get("/", ({ req, res }) => { /* ... */ });
 ```
 
 ## Middleware
 
 Import middleware utilities:
 
+### TypeScript
+
 ```typescript
 import { createLoggingMiddleware } from "azurajs/middleware";
+```
+
+### JavaScript
+
+```javascript
+const { createLoggingMiddleware } = require("azurajs/middleware");
 ```
 
 ## Types
@@ -63,6 +92,8 @@ import { rateLimit } from "azurajs/rate-limit";
 
 Import utilities as needed:
 
+### TypeScript
+
 ```typescript
 // Logger
 import { logger } from "azurajs/logger";
@@ -75,6 +106,22 @@ import { validateDto, validateSchema } from "azurajs/validators";
 
 // Cookies
 import { parseCookiesHeader, serializeCookie } from "azurajs/cookies";
+```
+
+### JavaScript
+
+```javascript
+// Logger
+const { logger } = require("azurajs/logger");
+
+// HTTP Error
+const { HttpError } = require("azurajs/http-error");
+
+// Validators
+const { validateDto, validateSchema } = require("azurajs/validators");
+
+// Cookies
+const { parseCookiesHeader, serializeCookie } = require("azurajs/cookies");
 ```
 
 ## Router
@@ -91,7 +138,8 @@ import { Router } from "azurajs/router";
 
 ```typescript
 // Main imports
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 
 // Decorators
 import { Controller, Get, Post, Body, Param, Res } from "azurajs/decorators";
@@ -236,7 +284,7 @@ import { cors } from "azurajs/cors";
 ```
 
 <Callout type="warn">
-  **Important!** Starting from version 2.4.0, you MUST use modular imports. The main package (`azurajs`) only exports `AzuraClient`, `applyDecorators`, and basic types. Specific features like logger, validators, http-error, cors, etc. must be imported from their respective modules.
+  **Important!** Starting from version 2.4.0, you MUST use modular imports. The main package (`azurajs`) only exports `AzuraClient` and basic types. Specific features like decorators (including `applyDecorators`), logger, validators, http-error, cors, etc. must be imported from their respective modules.
 </Callout>
 
 ## Available Modules

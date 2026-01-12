@@ -6,28 +6,27 @@ icon: TriangleAlert
 
 # Error Handling 🚨
 
-Proper error handling ensures your API returns meaningful responses and stays resilient.
+AzuraJS provides powerful tools for handling errors consistently and gracefully.
 
 ## HttpError Class 💥
 
-Use the built-in `HttpError` class for HTTP errors:
+Use `HttpError` to throw HTTP errors with status codes:
 
 ### TypeScript
 
 ```typescript
-import { Get, Param, Res } from "azurajs/decorators";
+import { Get, Param } from "azurajs/decorators";
 import { HttpError } from "azurajs/http-error";
-import type { ResponseServer } from "azurajs/types";
 
 @Get("/:id")
-getUser(@Param("id") id: string, @Res() res: ResponseServer) {
-  const user = users.find(u => u.id === id);
+getUser(@Param("id") id: string) {
+  const user = findUserById(id);
   
   if (!user) {
     throw new HttpError(404, "User not found");
   }
   
-  res.json({ user });
+  return { user };
 }
 ```
 
@@ -38,7 +37,7 @@ const { HttpError } = require("azurajs/http-error");
 
 app.get("/:id", ({ req, res }) => {
   const { id } = req.params;
-  const user = users.find(u => u.id === id);
+  const user = findUserById(id);
   
   if (!user) {
     throw new HttpError(404, "User not found");
@@ -48,375 +47,647 @@ app.get("/:id", ({ req, res }) => {
 });
 ```
 
-## Try-Catch Blocks 🛡️
-
-Wrap async operations in try-catch:
-
-### TypeScript
+### Common Status Codes
 
 ```typescript
-@Post()
-async createUser(@Body() data: any, @Res() res: ResponseServer) {
-  try {
-    const user = await database.users.create(data);
-    res.status(201).json({ user });
-  } catch (error) {
-    if (error instanceof HttpError) {
-      res.status(error.status).json({ error: error.message });
-    } else {
-      res.status(500).json({ error: "Internal server error" });
-    }
-  }
-}
+// 400 Bad Request
+throw new HttpError(400, "Invalid data");
+
+// 401 Unauthorized
+throw new HttpError(401, "Unauthorized");
+
+// 403 Forbidden
+throw new HttpError(403, "Access denied");
+
+// 404 Not Found
+throw new HttpError(404, "Resource not found");
+
+// 409 Conflict
+throw new HttpError(409, "User already exists");
+
+// 422 Unprocessable Entity
+throw new HttpError(422, "Validation failed");
+
+// 500 Internal Server Error
+throw new HttpError(500, "Internal server error");
 ```
 
-### JavaScript
+## Error Handling Middleware ⚙️
 
-```javascript
-app.post("/users", async ({ req, res }) => {
-  try {
-    const user = await database.users.create(req.body);
-    res.status(201).json({ user });
-  } catch (error) {
-    if (error instanceof HttpError) {
-      res.status(error.status).json({ error: error.message });
-    } else {
-      res.status(500).json({ error: "Internal server error" });
-    }
-  }
-});
-```
-
-## Error Response Format 📋
-
-Use a consistent error response structure:
+Create a global middleware to catch all errors:
 
 ```typescript
-interface ErrorResponse {
-  error: string;
-  message?: string;
-  details?: any;
-  timestamp: string;
-  path: string;
-}
-
-function sendError(
+function errorHandler(
+  error: any,
+  req: RequestServer,
   res: ResponseServer,
-  status: number,
-  message: string,
-  details?: any
+  next: () => void
 ) {
-  res.status(status).json({
-    error: message,
-    details,
-    timestamp: new Date().toISOString(),
-    path: res.req?.url,
+  console.error("Error:", error);
+  
+  // HttpError
+  if (error instanceof HttpError) {
+    return res.status(error.statusCode).json({
+      error: error.message,
+      statusCode: error.statusCode
+    });
+  }
+  
+  // Validation error (Zod)
+  if (error.name === "ZodError") {
+    return res.status(400).json({
+      error: "Validation failed",
+      details: error.errors
+    });
+  }
+  
+  // Generic error
+  res.status(500).json({
+    error: "Internal server error",
+    message: process.env.NODE_ENV === "development" ? error.message : undefined
   });
 }
 
-// Usage
-@Get("/:id")
-getUser(@Param("id") id: string, @Res() res: ResponseServer) {
-  const user = users.find(u => u.id === id);
-  
-  if (!user) {
-    return sendError(res, 404, "User not found");
-  }
-  
-  res.json({ user });
-}
-```
-
-## Global Error Handler 🌐
-
-Create a global error handling middleware:
-
-### TypeScript
-
-```typescript
-import { HttpError } from "azurajs/http-error";
-import type { RequestHandler } from "azurajs/types";
-
-export const errorHandler: RequestHandler = async (req, res, next) => {
-  try {
-    await next();
-  } catch (error: any) {
-    console.error(`[Error] ${req.method} ${req.url}:`, error);
-    
-    if (error instanceof HttpError) {
-      res.status(error.status).json({
-        error: error.message,
-        status: error.status,
-        timestamp: new Date().toISOString(),
-        path: req.url,
-      });
-    } else if (error.name === "ValidationError") {
-      res.status(400).json({
-        error: "Validation failed",
-        details: error.details,
-      });
-    } else {
-      res.status(500).json({
-        error: process.env.NODE_ENV === "production" 
-          ? "Internal server error" 
-          : error.message,
-        ...(process.env.NODE_ENV !== "production" && { stack: error.stack }),
-      });
-    }
-  }
-};
-
-// Apply globally
-const app = new AzuraClient();
+// Register last
 app.use(errorHandler);
 ```
 
-### JavaScript
+## Try-Catch in Async Handlers 🔄
 
-```javascript
-const { HttpError } = require("azurajs/http-error");
-
-const errorHandler = async (req, res, next) => {
-  try {
-    await next();
-  } catch (error) {
-    console.error(`[Error] ${req.method} ${req.url}:`, error);
-    
-    if (error instanceof HttpError) {
-      res.status(error.status).json({
-        error: error.message,
-        status: error.status,
-        timestamp: new Date().toISOString(),
-        path: req.url,
-      });
-    } else if (error.name === "ValidationError") {
-      res.status(400).json({
-        error: "Validation failed",
-        details: error.details,
-      });
-    } else {
-      res.status(500).json({
-        error: process.env.NODE_ENV === "production" 
-          ? "Internal server error" 
-          : error.message,
-        ...(process.env.NODE_ENV !== "production" && { stack: error.stack }),
-      });
-    }
-  }
-};
-
-// Apply globally
-const { AzuraClient } = require("azurajs");
-const app = new AzuraClient();
-app.use(errorHandler);
-```
-
-## Validation Errors ✅
-
-Handle validation errors consistently:
+Always wrap async code in try-catch:
 
 ```typescript
-import { z, ZodError } from "zod";
-
-@Post()
-createUser(@Body() body: any, @Res() res: ResponseServer) {
+@Get("/posts")
+async getPosts(@Res() res: ResponseServer) {
   try {
-    const data = userSchema.parse(body);
-    // Create user...
-    res.status(201).json({ user: data });
+    const posts = await fetchPostsFromDB();
+    res.json({ posts });
   } catch (error) {
-    if (error instanceof ZodError) {
-      res.status(400).json({
-        error: "Validation failed",
-        details: error.errors.map(e => ({
-          field: e.path.join("."),
-          message: e.message,
-        })),
-      });
-    }
+    console.error("Error fetching posts:", error);
+    throw new HttpError(500, "Error fetching posts");
   }
 }
 ```
 
-## Custom Error Classes 🎯
+## Async Handler Wrapper 🎁
 
-Create custom error types:
+Create a wrapper to avoid repetitive try-catch:
 
 ```typescript
-export class NotFoundError extends HttpError {
-  constructor(resource: string, id: string) {
-    super(404, `${resource} with id ${id} not found`);
-    this.name = "NotFoundError";
-  }
+function asyncHandler(fn: Function) {
+  return async (req: RequestServer, res: ResponseServer, next: () => void) => {
+    try {
+      await fn(req, res, next);
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
-export class UnauthorizedError extends HttpError {
-  constructor(message = "Unauthorized") {
-    super(401, message);
-    this.name = "UnauthorizedError";
-  }
-}
+// Use as middleware
+app.get("/users", asyncHandler(async ({ req, res }) => {
+  const users = await getUsersFromDB();
+  res.json({ users });
+}));
+```
 
-export class ForbiddenError extends HttpError {
-  constructor(message = "Forbidden") {
-    super(403, message);
-    this.name = "ForbiddenError";
-  }
-}
+## Custom Error Classes 🎨
 
-export class ValidationError extends HttpError {
-  constructor(public details: any) {
-    super(400, "Validation failed");
+Create domain-specific error classes:
+
+```typescript
+class ValidationError extends HttpError {
+  constructor(message: string, public fields?: Record<string, string>) {
+    super(422, message);
     this.name = "ValidationError";
   }
 }
 
-// Usage
+class AuthenticationError extends HttpError {
+  constructor(message = "Not authenticated") {
+    super(401, message);
+    this.name = "AuthenticationError";
+  }
+}
+
+class AuthorizationError extends HttpError {
+  constructor(message = "Access denied") {
+    super(403, message);
+    this.name = "AuthorizationError";
+  }
+}
+
+class NotFoundError extends HttpError {
+  constructor(resource: string) {
+    super(404, `${resource} not found`);
+    this.name = "NotFoundError";
+  }
+}
+
+class ConflictError extends HttpError {
+  constructor(message: string) {
+    super(409, message);
+    this.name = "ConflictError";
+  }
+}
+
+// Use in controllers
 @Get("/:id")
 getUser(@Param("id") id: string) {
-  const user = users.find(u => u.id === id);
+  const user = findUserById(id);
+  
   if (!user) {
-    throw new NotFoundError("User", id);
+    throw new NotFoundError("User");
   }
+  
   return { user };
 }
 
-@Get("/admin")
-getAdminData(@Req() req: RequestServer) {
-  if (!req.user?.isAdmin) {
-    throw new ForbiddenError("Admin access required");
-  }
-  return { data: "admin data" };
-}
-```
-
-## Async Error Handling 🔄
-
-Handle async errors properly:
-
-```typescript
-@Get("/data")
-async getData(@Res() res: ResponseServer) {
-  try {
-    const data = await fetchFromDatabase();
-    const processed = await processData(data);
-    res.json({ data: processed });
-  } catch (error: any) {
-    console.error("Failed to get data:", error);
-    res.status(500).json({ 
-      error: "Failed to retrieve data",
-      message: error.message 
-    });
-  }
-}
-```
-
-## Database Errors 🗄️
-
-Handle common database errors:
-
-```typescript
 @Post()
-async createUser(@Body() data: any, @Res() res: ResponseServer) {
+createUser(@Body() data: any) {
+  const exists = userExists(data.email);
+  
+  if (exists) {
+    throw new ConflictError("Email already in use");
+  }
+  
+  return createUser(data);
+}
+```
+
+## Validation Error Handling ✅
+
+Integrate with Zod for type-safe validation:
+
+```typescript
+import { z } from "zod";
+
+const CreateUserSchema = z.object({
+  name: z.string().min(2),
+  email: z.string().email(),
+  age: z.number().int().positive()
+});
+
+@Post("/users")
+createUser(@Body() data: unknown, @Res() res: ResponseServer) {
   try {
-    const user = await database.users.create(data);
+    const validData = CreateUserSchema.parse(data);
+    const user = saveUser(validData);
     res.status(201).json({ user });
-  } catch (error: any) {
-    if (error.code === "23505") {  // PostgreSQL unique violation
-      res.status(409).json({ error: "User already exists" });
-    } else if (error.code === "23503") {  // Foreign key violation
-      res.status(400).json({ error: "Invalid reference" });
-    } else {
-      console.error("Database error:", error);
-      res.status(500).json({ error: "Database error" });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        error: "Validation failed",
+        details: error.errors.map(e => ({
+          field: e.path.join("."),
+          message: e.message
+        }))
+      });
     }
+    throw error;
   }
 }
 ```
 
 ## Error Logging 📝
 
-Log errors for monitoring:
+Log errors for later analysis:
 
 ```typescript
-import { logger } from "azurajs/logger";
+import { Logger } from "azurajs/logger";
 
-export const errorLogger: RequestHandler = async (req, res, next) => {
-  try {
-    await next();
-  } catch (error: any) {
-    // Log error
-    logger("error", `${req.method} ${req.url} - ${error.message}`);
-    
-    if (error.stack) {
-      logger("error", error.stack);
-    }
-    
-    // Send error log to external service
-    if (process.env.NODE_ENV === "production") {
-      await sendToErrorTracker(error, {
-        method: req.method,
-        url: req.url,
-        user: (req as any).user?.id,
-      });
-    }
-    
-    throw error;  // Re-throw for error handler
+function errorHandler(
+  error: any,
+  req: RequestServer,
+  res: ResponseServer,
+  next: () => void
+) {
+  // Log error details
+  Logger.error("Request error", {
+    error: error.message,
+    stack: error.stack,
+    method: req.method,
+    url: req.url,
+    ip: req.ip,
+    userAgent: req.headers["user-agent"],
+    timestamp: new Date().toISOString()
+  });
+  
+  // Respond to client
+  if (error instanceof HttpError) {
+    return res.status(error.statusCode).json({
+      error: error.message
+    });
   }
-};
+  
+  res.status(500).json({
+    error: "Internal server error"
+  });
+}
+
+app.use(errorHandler);
 ```
 
-## 404 Handler 🔍
+## Error Tracking 🔍
 
-Handle routes that don't exist:
+Integrate with tracking services like Sentry:
 
 ```typescript
-// Register after all routes
-app.use(async ({ req, res }) => {
-  res.status(404).json({
-    error: "Not Found",
-    message: `Cannot ${req.method} ${req.url}`,
-    timestamp: new Date().toISOString(),
-  });
+import * as Sentry from "@sentry/node";
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV,
+  tracesSampleRate: 1.0
 });
+
+function errorHandler(
+  error: any,
+  req: RequestServer,
+  res: ResponseServer,
+  next: () => void
+) {
+  // Send to Sentry
+  Sentry.captureException(error, {
+    extra: {
+      method: req.method,
+      url: req.url,
+      ip: req.ip
+    }
+  });
+  
+  // Respond to client
+  if (error instanceof HttpError) {
+    return res.status(error.statusCode).json({
+      error: error.message
+    });
+  }
+  
+  res.status(500).json({
+    error: "Internal server error"
+  });
+}
+
+app.use(errorHandler);
+```
+
+## Errors in Middleware 🔌
+
+Pass errors to the next middleware using `next()`:
+
+```typescript
+function authMiddleware(
+  req: RequestServer,
+  res: ResponseServer,
+  next: () => void
+) {
+  try {
+    const token = req.headers.authorization?.replace("Bearer ", "");
+    
+    if (!token) {
+      throw new AuthenticationError("Token not provided");
+    }
+    
+    const decoded = verifyJWT(token);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    next(error);  // Pass error to error handler
+  }
+}
+
+app.use(authMiddleware);
+app.use(errorHandler);
+```
+
+## Database Errors 💾
+
+Handle database-specific errors:
+
+```typescript
+class DatabaseError extends HttpError {
+  constructor(message: string, public originalError?: any) {
+    super(500, message);
+    this.name = "DatabaseError";
+  }
+}
+
+@Get("/users")
+async getUsers(@Res() res: ResponseServer) {
+  try {
+    const users = await db.query("SELECT * FROM users");
+    res.json({ users });
+  } catch (error: any) {
+    // Connection error
+    if (error.code === "ECONNREFUSED") {
+      throw new DatabaseError("Database unavailable", error);
+    }
+    
+    // SQL syntax error
+    if (error.code === "42P01") {
+      throw new DatabaseError("Table does not exist", error);
+    }
+    
+    // Generic error
+    throw new DatabaseError("Error querying database", error);
+  }
+}
+```
+
+## Consistent Error Response Format 📋
+
+Use a standard format for all error responses:
+
+```typescript
+interface ErrorResponse {
+  error: {
+    message: string;
+    code: string;
+    statusCode: number;
+    details?: any;
+    timestamp: string;
+    path: string;
+  };
+}
+
+function errorHandler(
+  error: any,
+  req: RequestServer,
+  res: ResponseServer,
+  next: () => void
+) {
+  const statusCode = error instanceof HttpError ? error.statusCode : 500;
+  
+  const response: ErrorResponse = {
+    error: {
+      message: error.message || "Internal server error",
+      code: error.name || "INTERNAL_ERROR",
+      statusCode,
+      timestamp: new Date().toISOString(),
+      path: req.url
+    }
+  };
+  
+  // Add details in development
+  if (process.env.NODE_ENV === "development") {
+    response.error.details = {
+      stack: error.stack,
+      ...error
+    };
+  }
+  
+  res.status(statusCode).json(response);
+}
+```
+
+## Network Error Handling 🌐
+
+Handle errors when making external requests:
+
+```typescript
+@Get("/external-data")
+async getExternalData(@Res() res: ResponseServer) {
+  try {
+    const response = await fetch("https://api.example.com/data");
+    
+    if (!response.ok) {
+      throw new HttpError(
+        502,
+        `External API returned ${response.status}`
+      );
+    }
+    
+    const data = await response.json();
+    res.json({ data });
+  } catch (error: any) {
+    if (error.code === "ENOTFOUND") {
+      throw new HttpError(503, "External service unavailable");
+    }
+    
+    if (error.code === "ETIMEDOUT") {
+      throw new HttpError(504, "Timeout connecting to external service");
+    }
+    
+    throw error;
+  }
+}
+```
+
+## Circuit Breaker Pattern 🔌
+
+Implement circuit breaker for cascading failures:
+
+```typescript
+class CircuitBreaker {
+  private failures = 0;
+  private lastFailTime = 0;
+  private state: "CLOSED" | "OPEN" | "HALF_OPEN" = "CLOSED";
+  
+  constructor(
+    private threshold = 5,
+    private timeout = 60000
+  ) {}
+  
+  async execute<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.state === "OPEN") {
+      if (Date.now() - this.lastFailTime > this.timeout) {
+        this.state = "HALF_OPEN";
+      } else {
+        throw new HttpError(503, "Service temporarily unavailable");
+      }
+    }
+    
+    try {
+      const result = await fn();
+      this.onSuccess();
+      return result;
+    } catch (error) {
+      this.onFailure();
+      throw error;
+    }
+  }
+  
+  private onSuccess() {
+    this.failures = 0;
+    this.state = "CLOSED";
+  }
+  
+  private onFailure() {
+    this.failures++;
+    this.lastFailTime = Date.now();
+    
+    if (this.failures >= this.threshold) {
+      this.state = "OPEN";
+    }
+  }
+}
+
+const dbCircuitBreaker = new CircuitBreaker(5, 60000);
+
+@Get("/users")
+async getUsers(@Res() res: ResponseServer) {
+  try {
+    const users = await dbCircuitBreaker.execute(async () => {
+      return await db.query("SELECT * FROM users");
+    });
+    
+    res.json({ users });
+  } catch (error) {
+    if (error instanceof HttpError && error.statusCode === 503) {
+      return res.status(503).json({
+        error: "Service temporarily unavailable. Please try again in a few minutes."
+      });
+    }
+    throw error;
+  }
+}
+```
+
+## Complete Example 🎯
+
+```typescript
+// errors/CustomErrors.ts
+export class ValidationError extends HttpError {
+  constructor(message: string, public fields?: Record<string, string>) {
+    super(422, message);
+    this.name = "ValidationError";
+  }
+}
+
+export class NotFoundError extends HttpError {
+  constructor(resource: string) {
+    super(404, `${resource} not found`);
+    this.name = "NotFoundError";
+  }
+}
+
+export class ConflictError extends HttpError {
+  constructor(message: string) {
+    super(409, message);
+    this.name = "ConflictError";
+  }
+}
+
+// middleware/errorHandler.ts
+import { Logger } from "azurajs/logger";
+import * as Sentry from "@sentry/node";
+
+export function errorHandler(
+  error: any,
+  req: RequestServer,
+  res: ResponseServer,
+  next: () => void
+) {
+  // Log error
+  Logger.error("Request error", {
+    error: error.message,
+    stack: error.stack,
+    method: req.method,
+    url: req.url,
+    ip: req.ip
+  });
+  
+  // Send to Sentry in production
+  if (process.env.NODE_ENV === "production") {
+    Sentry.captureException(error);
+  }
+  
+  // Respond to client
+  const statusCode = error instanceof HttpError ? error.statusCode : 500;
+  
+  const response = {
+    error: {
+      message: error.message,
+      code: error.name,
+      statusCode,
+      timestamp: new Date().toISOString()
+    }
+  };
+  
+  // Details in development
+  if (process.env.NODE_ENV === "development") {
+    response.error.details = error.stack;
+  }
+  
+  res.status(statusCode).json(response);
+}
+
+// controllers/UserController.ts
+import { NotFoundError, ConflictError } from "../errors/CustomErrors";
+
+@Controller("/api/users")
+export class UserController {
+  @Get("/:id")
+  async getUser(@Param("id") id: string) {
+    const user = await findUserById(id);
+    
+    if (!user) {
+      throw new NotFoundError("User");
+    }
+    
+    return { user };
+  }
+
+  @Post()
+  async createUser(@Body() data: CreateUserDto) {
+    const exists = await userExists(data.email);
+    
+    if (exists) {
+      throw new ConflictError("Email already in use");
+    }
+    
+    try {
+      const user = await saveUser(data);
+      return { user };
+    } catch (error) {
+      throw new HttpError(500, "Error creating user");
+    }
+  }
+}
+
+// server.ts
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
+import { errorHandler } from "./middleware/errorHandler";
+import { UserController } from "./controllers/UserController";
+
+const app = new AzuraClient();
+
+// Register controllers
+applyDecorators(app, [UserController]);
+
+// Error handler (last!)
+app.use(errorHandler);
+
+await app.listen(3000);
 ```
 
 ## Best Practices ✨
 
 <Callout type="tip">
-  **Always catch async errors** - Use try-catch for all async operations
+  **Always use try-catch in async code**: Avoid unhandled crashes
 </Callout>
 
 <Callout type="tip">
-  **Return meaningful messages** - Help clients understand what went wrong
+  **Create custom error classes**: Makes identification and handling easier
+</Callout>
+
+<Callout type="tip">
+  **Log all errors**: Essential for debugging and monitoring
 </Callout>
 
 <Callout type="warn">
-  **Hide internal details in production** - Don't expose stack traces or DB errors
+  **Never expose stack traces in production**: Can leak sensitive information
 </Callout>
 
-<Callout type="info">
-  **Log all errors** - Monitor and track errors for debugging
+<Callout type="warn">
+  **Register error handler last**: Must catch errors from all previous middleware
 </Callout>
-
-## Common HTTP Status Codes 📊
-
-| Code | Meaning | When to Use |
-|------|---------|-------------|
-| 400 | Bad Request | Invalid input, validation errors |
-| 401 | Unauthorized | No authentication credentials |
-| 403 | Forbidden | Valid credentials but no permission |
-| 404 | Not Found | Resource doesn't exist |
-| 409 | Conflict | Resource already exists |
-| 422 | Unprocessable Entity | Valid format but can't process |
-| 429 | Too Many Requests | Rate limit exceeded |
-| 500 | Internal Server Error | Unexpected server error |
-| 503 | Service Unavailable | Server temporarily down |
 
 ## Next Steps 📖
 
 <Cards>
-  <Card title="Validation" href="validation" description="Prevent errors with validation" />
-  <Card title="Middleware" href="middleware" description="Create error handling middleware" />
-  <Card title="Examples" href="examples" description="See error handling examples" />
+  <Card title="Middleware" href="middleware" description="Create custom middleware" />
+  <Card title="TypeScript" href="typescript-support" description="Type-safe error handling" />
+  <Card title="Examples" href="examples" description="See complete examples" />
 </Cards>

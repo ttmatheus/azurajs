@@ -645,7 +645,8 @@ export class PostController {
 
 ```typescript
 // server.ts
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 import cluster from "cluster";
 import { cpus } from "os";
 

@@ -38,10 +38,11 @@ AzuraJS supports modular imports for tree-shaking and better organization:
 
 ```typescript
 // Main package
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
 
 // Decorators
 import { Controller, Get, Post, Body, Param } from "azurajs/decorators";
+import { applyDecorators } from "azurajs/decorators";
 
 // Middleware
 import { createLoggingMiddleware } from "azurajs/middleware";
@@ -101,7 +102,8 @@ export default config;
 ### 2. Create your server
 
 ```typescript
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 import { Controller, Get, Post, Body, Param, Query, Res } from "azurajs/decorators";
 import { createLoggingMiddleware } from "azurajs/middleware";
 import type { ResponseServer } from "azurajs/types";
@@ -644,7 +646,8 @@ type ConfigTypes = {
 ### Complete CRUD API
 
 ```typescript
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 import { Controller, Get, Post, Put, Delete, Body, Param, Res } from "azurajs/decorators";
 import type { ResponseServer } from "azurajs/types";
 

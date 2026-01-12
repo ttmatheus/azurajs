@@ -8,29 +8,64 @@ icon: Shield
 
 Protect your API from abuse and DDoS attacks with rate limiting.
 
-## Built-in Rate Limiting 🔧
+## Built-in Rate Limit Plugin 📦
 
-Enable rate limiting in configuration:
+AzuraJS includes a ready-to-use rate limiting plugin:
 
-```typescript title="azura.config.ts"
-const config: ConfigTypes = {
+```typescript
+import { AzuraClient } from "azurajs";
+
+const app = new AzuraClient({
   plugins: {
     rateLimit: {
       enabled: true,
-      limit: 100,        // 100 requests
-      timeframe: 60000,  // per minute (in milliseconds)
-    },
-  },
-};
+      windowMs: 60000,  // 1 minute
+      max: 100,  // 100 requests per window
+      message: "Too many requests. Please try again later.",
+      statusCode: 429,
+      headers: true  // Add X-RateLimit-* headers
+    }
+  }
+});
 ```
 
-## How It Works ⚙️
+## Plugin Configuration 🚨
 
-The rate limiter tracks requests by IP address:
+### Available Options
 
-- Counts requests from each IP
-- Resets counter after timeframe expires
-- Returns `429 Too Many Requests` when limit exceeded
+```typescript
+interface RateLimitOptions {
+  enabled: boolean;          // Enable/disable
+  windowMs: number;          // Time window (ms)
+  max: number;               // Maximum requests per window
+  message?: string;          // Error message
+  statusCode?: number;       // Status code (default: 429)
+  headers?: boolean;         // Include X-RateLimit-* headers
+  skipSuccessfulRequests?: boolean;  // Don't count successful requests
+  skipFailedRequests?: boolean;      // Don't count failed requests
+  keyGenerator?: (req: RequestServer) => string;  // Generate custom key
+  skip?: (req: RequestServer) => boolean;         // Skip rate limit
+}
+```
+
+### Complete Example
+
+```typescript
+const app = new AzuraClient({
+  plugins: {
+    rateLimit: {
+      enabled: true,
+      windowMs: 900000,  // 15 minutes
+      max: 100,
+      message: "You have reached the request limit. Please wait before trying again.",
+      statusCode: 429,
+      headers: true,
+      skipSuccessfulRequests: false,
+      skipFailedRequests: true
+    }
+  }
+});
+```
 
 ## Custom Rate Limiting 🛠️
 
@@ -184,54 +219,286 @@ export const tieredRateLimiter: RequestHandler = async (req, res, next) => {
 };
 ```
 
-## Distributed Rate Limiting 🌐
+## Distributed Rate Limiting with Redis 🔴
 
-For multi-server deployments, use Redis:
-
-```bash
-bun add ioredis
-```
+For applications with multiple instances, use Redis:
 
 ```typescript
-import Redis from "ioredis";
+import { createClient } from "redis";
 
-const redis = new Redis({
-  host: process.env.REDIS_HOST,
-  port: 6379,
-});
+const redis = createClient({ url: "redis://localhost:6379" });
+await redis.connect();
 
-export function createRedisRateLimiter(
-  limit: number,
-  windowSeconds: number
-): RequestHandler {
-  return async (req, res, next) => {
-    const ip = req.socket.remoteAddress || "unknown";
-    const key = `ratelimit:${ip}`;
+function redisRateLimitMiddleware(
+  windowMs: number,
+  max: number
+) {
+  return async (req: RequestServer, res: ResponseServer, next: () => void) => {
+    const key = `rate-limit:${req.ip}`;
+    const now = Date.now();
     
     try {
-      const requests = await redis.incr(key);
+      // Get current counter
+      const data = await redis.get(key);
+      let record: RateLimitRecord;
       
-      if (requests === 1) {
-        await redis.expire(key, windowSeconds);
+      if (!data) {
+        // Create new record
+        record = { count: 1, resetAt: now + windowMs };
+        await redis.setEx(key, Math.ceil(windowMs / 1000), JSON.stringify(record));
+        return next();
       }
       
-      if (requests > limit) {
-        const ttl = await redis.ttl(key);
-        res.setHeader("Retry-After", ttl.toString());
-        res.status(429).json({ error: "Too many requests" });
-        return;
+      record = JSON.parse(data);
+      
+      // Check if window expired
+      if (now > record.resetAt) {
+        record = { count: 1, resetAt: now + windowMs };
+        await redis.setEx(key, Math.ceil(windowMs / 1000), JSON.stringify(record));
+        return next();
       }
       
-      res.setHeader("X-RateLimit-Limit", limit.toString());
-      res.setHeader("X-RateLimit-Remaining", (limit - requests).toString());
+      // Increment counter
+      record.count++;
+      await redis.setEx(key, Math.ceil((record.resetAt - now) / 1000), JSON.stringify(record));
       
-      await next();
+      // Check limit
+      if (record.count > max) {
+        return res.status(429).json({
+          error: "Too many requests",
+          retryAfter: Math.ceil((record.resetAt - now) / 1000)
+        });
+      }
+      
+      next();
     } catch (error) {
-      // Fail open - don't block if Redis is down
-      console.error("Rate limiter error:", error);
-      await next();
+      console.error("Redis rate limit error:", error);
+      next();  // Fail open in case of Redis error
     }
   };
+}
+
+app.use(redisRateLimitMiddleware(60000, 100));
+```
+
+## Rate Limit with Sliding Window 📊
+
+More precise implementation with sliding window:
+
+```typescript
+interface SlidingWindowRecord {
+  requests: number[];  // Request timestamps
+}
+
+const store = new Map<string, SlidingWindowRecord>();
+
+function slidingWindowRateLimit(
+  windowMs: number,
+  max: number
+) {
+  return (req: RequestServer, res: ResponseServer, next: () => void) => {
+    const key = req.ip;
+    const now = Date.now();
+    const windowStart = now - windowMs;
+    
+    let record = store.get(key);
+    
+    if (!record) {
+      record = { requests: [] };
+      store.set(key, record);
+    }
+    
+    // Remove old requests
+    record.requests = record.requests.filter(timestamp => timestamp > windowStart);
+    
+    // Add current request
+    record.requests.push(now);
+    
+    // Add headers
+    res.setHeader("X-RateLimit-Limit", max.toString());
+    res.setHeader("X-RateLimit-Remaining", Math.max(0, max - record.requests.length).toString());
+    
+    // Check limit
+    if (record.requests.length > max) {
+    Use Redis for distributed environments**: Ensures consistent limits across multiple instances
+</Callout>
+
+<Callout type="tip">
+  **Different limits for different endpoints**: Protect sensitive operations with stricter limits
+</Callout>
+
+<Callout type="tip">
+  **Always add headers**: Help clients understand the limits
+</Callout>
+
+<Callout type="warn">
+  **Be careful with proxies**: Use `req.ip` which considers X-Forwarded-For headers
+</Callout>
+
+<Callout type="warn">
+  **Don't block everything**: Whitelist internal and monitoring IPs
+
+## Rate Limit per Endpoint 🛣️
+
+Different limits for different endpoints:
+
+```typescript
+@Controller("/api")
+export class ApiController {
+  @Post("/expensive-operation")
+  expensiveOp(@Req() req: RequestServer, @Res() res: ResponseServer) {
+    // Check specific rate limit
+    const key = `expensive:${req.ip}`;
+    const limit = checkRateLimit(key, 600000, 5);  // 5 per 10 min
+    
+    if (!limit.allowed) {
+      return res.status(429).json({
+        error: "Operation limited to 5 per 10 minutes"
+      });
+    }
+    
+    // Execute operation
+    return { result: "ok" };
+  }
+
+  @Get("/public-data")
+  publicData(@Req() req: RequestServer, @Res() res: ResponseServer) {
+    // More permissive rate limit
+    const key = `public:${req.ip}`;
+    const limit = checkRateLimit(key, 60000, 1000);  // 1000 per min
+    
+    if (!limit.allowed) {
+      return res.status(429).json({ error: "Rate limit exceeded" });
+    }
+    
+    return { data: "public" };
+  }
+}
+
+function checkRateLimit(key: string, windowMs: number, max: number) {
+  // Implementation similar to previous examples
+  // ...
+  return { allowed: true, remaining: max };
+}
+```
+
+## Whitelist and Blacklist 📝
+
+Skip rate limiting for trusted IPs:
+
+```typescript
+const WHITELISTED_IPS = new Set([
+  "127.0.0.1",
+  "::1",
+  "10.0.0.1"  // Internal IP
+]);
+
+const BLACKLISTED_IPS = new Set([
+  "192.168.1.100"  // Banned IP
+]);
+
+function rateLimitWithWhitelist(
+  windowMs: number,
+  max: number
+) {
+  return (req: RequestServer, res: ResponseServer, next: () => void) => {
+    const ip = req.ip;
+    
+    // Block banned IPs
+    if (BLACKLISTED_IPS.has(ip)) {
+      return res.status(403).json({ error: "IP banned" });
+    }
+    
+    // Skip rate limit for trusted IPs
+    if (WHITELISTED_IPS.has(ip)) {
+      return next();
+    }
+    
+    // Apply normal rate limit
+    // ... rate limit implementation
+    next();
+  };
+}
+
+app.use(rateLimitWithWhitelist(60000, 100));
+```
+
+## Rate Limit Headers 📋
+
+Add informative headers:
+
+```typescript
+function addRateLimitHeaders(
+  res: ResponseServer,
+  limit: number,
+  remaining: number,
+  resetAt: number
+) {
+  res.setHeader("X-RateLimit-Limit", limit.toString());
+  res.setHeader("X-RateLimit-Remaining", remaining.toString());
+  res.setHeader("X-RateLimit-Reset", resetAt.toString());
+  res.setHeader("Retry-After", Math.ceil((resetAt - Date.now()) / 1000).toString());
+}
+```
+
+## Practical Examples 🎨
+
+### Rate Limit for REST API
+
+```typescript
+const app = new AzuraClient({
+  plugins: {
+    rateLimit: {
+      enabled: true,
+      windowMs: 900000,  // 15 minutes
+      max: 1000,
+      headers: true
+    }
+  }
+});
+
+// Stricter rate limit for write operations
+const writeRateLimit = rateLimitMiddleware(60000, 50);  // 50 writes/min
+
+app.use("/api", apiRateLimit);
+app.post("*", writeRateLimit);
+app.put("*", writeRateLimit);
+app.delete("*", writeRateLimit);
+```
+
+### Rate Limit for Authentication
+
+```typescript
+const authRateLimit = rateLimitMiddleware(900000, 5);  // 5 attempts/15min
+
+@Controller("/auth")
+export class AuthController {
+  @Post("/login")
+  async login(
+    @Body() credentials: any,
+    @Req() req: RequestServer,
+    @Res() res: ResponseServer
+  ) {
+    // Check rate limit manually
+    const key = `login:${req.ip}`;
+    const limit = checkRateLimit(key, 900000, 5);
+    
+    if (!limit.allowed) {
+      return res.status(429).json({
+        error: "Too many login attempts",
+        retryAfter: limit.retryAfter
+      });
+    }
+    
+    // Try to authenticate
+    const user = await authenticate(credentials);
+    
+    if (!user) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+    
+    res.json({ user });
+  }
 }
 ```
 
@@ -299,9 +566,9 @@ export function createRateLimiterWithBypass(
 <Callout type="info">
   **Monitor and adjust** - Track 429 responses and adjust limits accordingly
 </Callout>
-
-## Next Steps 📖
-
+CORS" href="cors" description="Configure CORS" />
+  <Card title="Middleware" href="middleware" description="Create custom middleware" />
+  <Card title="Error Handling" href="error-handling" description="Handle rate limit errors
 <Cards>
   <Card title="Middleware" href="middleware" description="Learn more about middleware" />
   <Card title="Error Handling" href="error-handling" description="Handle rate limit errors" />

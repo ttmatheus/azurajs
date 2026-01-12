@@ -137,7 +137,8 @@ export class HelloController {
 Create `src/index.ts`:
 
 ```typescript
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 import { HelloController } from "./controllers/HelloController";
 
 const app = new AzuraClient();

@@ -8,6 +8,10 @@ icon: Package
 
 O AzuraJS suporta importações modulares para melhor tree-shaking e bundles menores. Importe apenas o que você precisa!
 
+<Callout type="info">
+**Nota sobre JavaScript:** Todas as importações funcionam da mesma forma em JavaScript! Apenas remova as importações de tipos e sintaxe específica do TypeScript.
+</Callout>
+
 ## Pacote Principal
 
 Importe tudo do pacote principal:
@@ -15,13 +19,13 @@ Importe tudo do pacote principal:
 ### TypeScript
 
 ```typescript
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
 ```
 
 ### JavaScript
 
 ```javascript
-const { AzuraClient, applyDecorators } = require("azurajs");
+const { AzuraClient } = require("azurajs");
 ```
 
 ## Decoradores
@@ -33,6 +37,7 @@ Importe decoradores separadamente:
 ```typescript
 import { Controller, Get, Post, Put, Delete, Patch } from "azurajs/decorators";
 import { Body, Param, Query, Headers, Req, Res } from "azurajs/decorators";
+import { applyDecorators } from "azurajs/decorators";
 ```
 
 ### JavaScript
@@ -129,9 +134,12 @@ import { Router } from "azurajs/router";
 
 ## Exemplo Completo
 
+### TypeScript
+
 ```typescript
 // Importações principais
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 
 // Decoradores
 import { Controller, Get, Post, Body, Param, Res } from "azurajs/decorators";
@@ -172,6 +180,41 @@ app.use(createLoggingMiddleware(app.getConfig()));
 applyDecorators(app, [UserController]);
 
 await app.listen(3000);
+```
+
+### JavaScript
+
+```javascript
+// Importações principais
+const { AzuraClient } = require("azurajs");
+
+// Middleware
+const { createLoggingMiddleware } = require("azurajs/middleware");
+
+// Utilitários
+const { HttpError } = require("azurajs/http-error");
+
+const app = new AzuraClient();
+app.use(createLoggingMiddleware(app.getConfig()));
+
+// Rotas
+app.get("/users", ({ req, res }) => {
+  res.json({ users: [] });
+});
+
+app.get("/users/:id", ({ req, res }) => {
+  const { id } = req.params;
+  if (id === "0") {
+    throw new HttpError(404, "Usuário não encontrado");
+  }
+  res.json({ id, name: "Usuário" });
+});
+
+app.post("/users", ({ req, res }) => {
+  res.status(201).json({ id: Date.now(), ...req.body });
+});
+
+app.listen(3000);
 ```
 
 ## Benefícios
@@ -241,7 +284,7 @@ import { cors } from "azurajs/cors";
 ```
 
 <Callout type="warn">
-  **Atenção!** A partir da versão 2.4.0, você DEVE usar imports modulares. O pacote principal (`azurajs`) exporta apenas `AzuraClient`, `applyDecorators` e tipos básicos. Funcionalidades específicas como logger, validators, http-error, cors, etc. devem ser importados de seus respectivos módulos.
+  **Atenção!** A partir da versão 2.4.0, você DEVE usar imports modulares. O pacote principal (`azurajs`) exporta apenas `AzuraClient` e tipos básicos. Funcionalidades específicas como decorators (incluindo `applyDecorators`), logger, validators, http-error, cors, etc. devem ser importados de seus respectivos módulos.
 </Callout>
 
 ## Módulos Disponíveis

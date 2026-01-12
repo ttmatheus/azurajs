@@ -19,6 +19,7 @@ Elegant, type-safe, and blazing fast.
 
 ```typescript
 import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 import { Controller, Get } from "azurajs/decorators";
 
 @Controller()
@@ -62,7 +63,8 @@ The documentation is available on [azura.js.org](https://azura.js.org).
 ### TypeScript with Decorators
 
 ```typescript
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 import { Controller, Get, Post, Body, Param, Res } from "azurajs/decorators";
 import { HttpError } from "azurajs/http-error";
 import type { ResponseServer } from "azurajs";

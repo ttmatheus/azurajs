@@ -230,7 +230,8 @@ AzuraJS inclui um servidor HTTP Node.js integrado:
 ### TypeScript
 
 ```typescript title="node-server.ts"
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 import { UserController } from "./controllers/UserController";
 
 const app = new AzuraClient();

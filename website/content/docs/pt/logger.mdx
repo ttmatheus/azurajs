@@ -1,0 +1,411 @@
+---
+title: Logger
+description: Sistema avançado de logging com cores, ícones e timestamps
+icon: Terminal
+---
+
+# Logger 📝
+
+AzuraJS inclui um poderoso sistema de logging com suporte para cores, ícones, timestamps e personalização completa.
+
+## Início Rápido 🚀
+
+```typescript
+import { log } from 'azurajs/logger';
+
+log.info('Servidor iniciado na porta 3000');
+log.success('Tarefa concluída com sucesso');
+log.warn('Uso de memória está alto');
+log.error('Falha na conexão');
+```
+
+## Níveis de Log 📊
+
+### Níveis Disponíveis
+
+```typescript
+log.debug('Informação de depuração');    // 🐛 Cinza
+log.info('Mensagem informativa');        // ℹ️  Ciano
+log.success('Mensagem de sucesso');      // ✅ Verde Brilhante
+log.warn('Mensagem de aviso');           // ⚠️  Amarelo
+log.error('Mensagem de erro');           // ❌ Vermelho
+log.fatal('Erro fatal');                 // 💀 Vermelho Brilhante
+log.trace('Mensagem de rastreamento');   // 🔍 Magenta
+log.log('Log geral');                    // 📝 Branco
+```
+
+## Configuração ⚙️
+
+### Configuração Global
+
+Configure o logger globalmente para todas as chamadas subsequentes:
+
+```typescript
+import { configureLogger } from 'azurajs/logger';
+
+configureLogger({
+  showTimestamp: true,
+  timestampFormat: 'datetime',
+  showIcon: true,
+  prefix: 'MeuApp',
+  uppercase: true,
+  bold: true
+});
+
+// Agora todos os logs usam esta configuração
+log.info('Servidor iniciado');  // [MeuApp:INFO] ℹ️ 11/01/2026, 14:30:45 Servidor iniciado
+```
+
+### Configuração Por Chamada
+
+Sobrescreva a configuração global para chamadas específicas:
+
+```typescript
+log.info('Mensagem customizada', {
+  showTimestamp: false,
+  bold: true,
+  colors: {
+    info: '#00ff00'  // Cor verde personalizada
+  }
+});
+```
+
+## Opções de Configuração 🎨
+
+### Configuração Completa
+
+```typescript
+interface LoggerConfig {
+  // Mapeamento de cores personalizadas (hex, rgb ou predefinidas)
+  colors?: Record<string, string>;
+  
+  // Mapeamento de ícones personalizados
+  icons?: Record<string, string>;
+  
+  // Mostrar timestamps
+  showTimestamp?: boolean;
+  
+  // Mostrar ícones
+  showIcon?: boolean;
+  
+  // Formato de timestamp: 'time', 'datetime' ou 'iso'
+  timestampFormat?: 'time' | 'datetime' | 'iso';
+  
+  // Prefixo personalizado (padrão: 'Azura')
+  prefix?: string;
+  
+  // Exibir nível em maiúsculas
+  uppercase?: boolean;
+  
+  // Aplicar estilo negrito
+  bold?: boolean;
+  
+  // Aplicar estilo dim/desbotado
+  dim?: boolean;
+  
+  // Cor de fundo
+  backgroundColor?: string;
+}
+```
+
+## Cores Personalizadas 🎨
+
+### Cores Hexadecimais
+
+```typescript
+log.info('Mensagem', {
+  colors: {
+    info: '#ff5733'  // Laranja personalizado
+  }
+});
+```
+
+### Cores RGB
+
+```typescript
+log.info('Mensagem', {
+  colors: {
+    info: 'rgb(255, 87, 51)'
+  }
+});
+```
+
+### Cores Predefinidas
+
+```typescript
+log.info('Mensagem', {
+  colors: {
+    info: 'brightBlue'  // Usar cor predefinida
+  }
+});
+```
+
+Cores disponíveis:
+- `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, `gray`
+- `brightRed`, `brightGreen`, `brightYellow`, `brightBlue`, `brightMagenta`, `brightCyan`, `brightWhite`
+
+## Ícones Personalizados 🎭
+
+```typescript
+log.info('Mensagem', {
+  icons: {
+    info: '🚀'  // Ícone de foguete personalizado
+  }
+});
+
+// Desabilitar ícones
+log.info('Mensagem', {
+  showIcon: false
+});
+```
+
+## Timestamps ⏰
+
+### Apenas Hora (HH:MM:SS)
+
+```typescript
+configureLogger({
+  showTimestamp: true,
+  timestampFormat: 'time'
+});
+
+log.info('Mensagem');  // 14:23:45 ℹ️ [Azura:INFO] Mensagem
+```
+
+### Data e Hora Completa
+
+```typescript
+configureLogger({
+  showTimestamp: true,
+  timestampFormat: 'datetime'
+});
+
+log.info('Mensagem');  // 11/01/2026, 14:23:45 ℹ️ [Azura:INFO] Mensagem
+```
+
+### ISO 8601
+
+```typescript
+configureLogger({
+  showTimestamp: true,
+  timestampFormat: 'iso'
+});
+
+log.info('Mensagem');  // 2026-01-11T14:23:45.123Z ℹ️ [Azura:INFO] Mensagem
+```
+
+## Opções de Estilo 💅
+
+### Texto em Negrito
+
+```typescript
+log.info('Mensagem importante', { bold: true });
+```
+
+### Texto Desbotado
+
+```typescript
+log.trace('Menos importante', { dim: true });
+```
+
+### Cor de Fundo
+
+```typescript
+log.error('Erro crítico', {
+  backgroundColor: 'bgRed'
+});
+```
+
+### Estilização Combinada
+
+```typescript
+log.success('Pronto!', {
+  bold: true,
+  colors: { success: '#00ff00' },
+  backgroundColor: 'bgBlack'
+});
+```
+
+## Uso Avançado 🎯
+
+### Prefixo Personalizado
+
+```typescript
+configureLogger({
+  prefix: 'MinhaAPI'
+});
+
+log.info('Requisição recebida');  // [MinhaAPI:INFO] ℹ️ Requisição recebida
+```
+
+### Diferentes Prefixos Por Serviço
+
+```typescript
+const dbLogger = (msg: string) => log.info(msg, { prefix: 'Database' });
+const apiLogger = (msg: string) => log.info(msg, { prefix: 'API' });
+
+dbLogger('Conexão estabelecida');  // [Database:INFO] ℹ️ Conexão estabelecida
+apiLogger('Servidor iniciado');    // [API:INFO] ℹ️ Servidor iniciado
+```
+
+### Usando a Função Logger Bruta
+
+```typescript
+import { logger } from 'azurajs/logger';
+
+logger('info', 'Log personalizado', {
+  showTimestamp: true,
+  colors: { info: '#00ff00' }
+});
+```
+
+## Utilitários de Cor 🖌️
+
+Acesse funções de cor diretamente:
+
+```typescript
+import { colors } from 'azurajs/logger';
+
+// Converter hex para ANSI
+const greenAnsi = colors.hex('#00ff00');
+console.log(`${greenAnsi}Texto verde${colors.reset}`);
+
+// Converter RGB para ANSI
+const blueAnsi = colors.rgb(0, 0, 255);
+console.log(`${blueAnsi}Texto azul${colors.reset}`);
+
+// Usar cores predefinidas
+console.log(`${colors.ansi.brightRed}Texto vermelho${colors.reset}`);
+
+// Cores de fundo
+console.log(`${colors.bg.bgYellow}Fundo amarelo${colors.reset}`);
+
+// Estilização
+console.log(`${colors.bold}Texto em negrito${colors.reset}`);
+console.log(`${colors.dim}Texto desbotado${colors.reset}`);
+```
+
+## Exemplos Práticos 💡
+
+### Logging de Requisições HTTP
+
+```typescript
+app.use((req, res, next) => {
+  log.info(`${req.method} ${req.path}`, {
+    showTimestamp: true,
+    timestampFormat: 'time'
+  });
+  next();
+});
+```
+
+### Rastreamento de Erros
+
+```typescript
+try {
+  await operacaoArriscada();
+  log.success('Operação concluída');
+} catch (error) {
+  log.error(`Operação falhou: ${error.message}`, {
+    showTimestamp: true,
+    bold: true
+  });
+}
+```
+
+### Desenvolvimento vs Produção
+
+```typescript
+const isDev = process.env.NODE_ENV === 'development';
+
+configureLogger({
+  showTimestamp: !isDev,
+  showIcon: isDev,
+  colors: isDev ? undefined : {
+    info: 'white',
+    error: 'red'
+  }
+});
+```
+
+### Logging Estruturado
+
+```typescript
+function logRequest(req: any) {
+  log.info('Requisição', {
+    prefix: 'API',
+    showTimestamp: true
+  });
+  log.debug(JSON.stringify({
+    method: req.method,
+    path: req.path,
+    ip: req.ip
+  }, null, 2));
+}
+```
+
+## Melhores Práticas 💎
+
+1. **Configure globalmente uma vez** no início da aplicação
+2. **Use níveis apropriados** - não use `error` para avisos
+3. **Inclua timestamps em produção** para depuração
+4. **Desabilite cores em ambientes CI/CD**
+5. **Use prefixos** para identificar fontes de log
+6. **Mantenha mensagens concisas** mas informativas
+7. **Desabilite logs de debug** em produção
+
+## Guia de Migração 🔄
+
+### Do console.log
+
+```typescript
+// Antes
+console.log('Servidor iniciado');
+console.error('Ocorreu um erro');
+
+// Depois
+log.info('Servidor iniciado');
+log.error('Ocorreu um erro');
+```
+
+### Do Winston/Pino
+
+```typescript
+// Antes (Winston)
+logger.info('Mensagem', { timestamp: true });
+
+// Depois (Azura)
+log.info('Mensagem', { showTimestamp: true });
+```
+
+## Referência da API 📖
+
+### Funções Principais
+
+- `log.debug(msg, options?)` - Mensagem de debug
+- `log.info(msg, options?)` - Mensagem informativa
+- `log.success(msg, options?)` - Mensagem de sucesso
+- `log.warn(msg, options?)` - Mensagem de aviso
+- `log.error(msg, options?)` - Mensagem de erro
+- `log.fatal(msg, options?)` - Mensagem de erro fatal
+- `log.trace(msg, options?)` - Mensagem de rastreamento
+- `log.log(msg, options?)` - Log geral
+
+### Configuração
+
+- `configureLogger(config)` - Definir configuração global
+- `logger(level, msg, options?)` - Função logger bruta
+- `colors.*` - Utilitários de cor
+
+## Exemplos 📚
+
+Confira os exemplos completos:
+- Veja exemplos no repositório para padrões de uso mais avançados
+
+## Próximos Passos 📖
+
+<Cards>
+  <Card title="Middleware" href="/docs/pt/middleware" description="Aprenda sobre middleware" />
+  <Card title="Error Handling" href="/docs/pt/error-handling" description="Tratamento de erros" />
+  <Card title="Configuration" href="/docs/pt/configuration" description="Configure sua aplicação" />
+</Cards>

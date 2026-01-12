@@ -301,7 +301,8 @@ For JavaScript, you already created the complete server in Step 2. For TypeScrip
 Create `src/index.ts`:
 
 ```typescript title="src/index.ts"
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 import { createLoggingMiddleware } from "azurajs/middleware";
 import { UserController } from "./controllers/UserController";
 

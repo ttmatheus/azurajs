@@ -181,6 +181,34 @@ app.get("/protected", authMiddleware, ({ req, res }) => {
 });
 ```
 
+### Middleware Configurável
+
+```javascript
+function createRateLimit(limit, windowMs) {
+  const requests = new Map();
+  
+  return (req, res, next) => {
+    const ip = req.socket.remoteAddress;
+    const now = Date.now();
+    
+    const userRequests = requests.get(ip) || [];
+    const recentRequests = userRequests.filter(time => now - time < windowMs);
+    
+    if (recentRequests.length >= limit) {
+      return res.status(429).json({ error: "Muitas requisições" });
+    }
+    
+    recentRequests.push(now);
+    requests.set(ip, recentRequests);
+    next();
+  };
+}
+
+// Usar
+const rateLimit = createRateLimit(100, 60000); // 100 requisições por minuto
+app.use(rateLimit);
+```
+
 ## Exemplo Completo 🎯
 
 API REST completa em JavaScript:
@@ -288,6 +316,77 @@ app.get("/health", ({ req, res }) => {
 await app.listen();
 ```
 
+## Manipulação de Cookies 🍪
+
+```javascript
+// Definir cookie
+app.get("/login", ({ req, res }) => {
+  res.cookie("session", "abc123", {
+    httpOnly: true,
+    maxAge: 3600000, // 1 hora
+    secure: true,
+  });
+  res.json({ message: "Logado" });
+});
+
+// Ler cookie
+app.get("/profile", ({ req, res }) => {
+  const session = req.cookies.session;
+  if (!session) {
+    return res.status(401).json({ error: "Não autenticado" });
+  }
+  res.json({ session });
+});
+
+// Limpar cookie
+app.get("/logout", ({ req, res }) => {
+  res.clearCookie("session");
+  res.json({ message: "Deslogado" });
+});
+```
+
+## Tratamento de Erros ⚠️
+
+```javascript
+// Middleware personalizado de tratamento de erros
+app.use((req, res, next) => {
+  try {
+    next();
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Erro interno do servidor" });
+  }
+});
+
+// Tratamento de erro em nível de rota
+app.get("/risky", ({ req, res }) => {
+  try {
+    // Operação arriscada
+    throw new Error("Algo deu errado");
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+```
+
+## Migração para TypeScript 🔄
+
+Quando estiver pronto para adicionar segurança de tipos:
+
+1. **Renomear arquivos** - `.js` → `.ts`
+2. **Adicionar tipos** - Importe tipos do `azurajs`
+3. **Decorators opcionais** - Use decorators para melhor organização
+
+```typescript
+import { AzuraClient } from "azurajs";
+import type { RequestHandler } from "azurajs/types";
+
+const authMiddleware: RequestHandler = async (req, res, next) => {
+  // Sua lógica de middleware
+  await next();
+};
+```
+
 ## Melhores Práticas ✨
 
 <Callout type="tip">
@@ -302,6 +401,26 @@ await app.listen();
   **Async/await** - Use async/await ao invés de callbacks
 </Callout>
 
+<Callout type="tip">
+  **Tratamento de erros** - Sempre trate erros adequadamente
+</Callout>
+
+## Dicas de Performance ⚡
+
+```javascript
+// Evite criar middleware em rotas
+// ❌ Ruim
+app.get("/data", (req, res, next) => {
+  const logger = createLogger(); // Criado em cada requisição!
+  next();
+}, handler);
+
+// ✅ Bom
+const logger = createLogger(); // Criado uma vez
+app.use(logger);
+app.get("/data", handler);
+```
+
 ## Próximos Passos 📚
 
 <Cards>
@@ -310,3 +429,9 @@ await app.listen();
   <Card title="Roteamento" href="routing" description="Padrões avançados de rotas" />
   <Card title="TypeScript" href="typescript-support" description="Migrar para TypeScript" />
 </Cards>
+
+## Recursos 🔗
+
+- [Exemplos JavaScript](https://github.com/0xviny/azurajs/tree/main/examples/servers)
+- [Referência da API](https://azura.js.org/docs/pt)
+- [Comunidade Discord](https://discord.gg/gr63YzEYfp)

@@ -121,7 +121,8 @@ export class UserController {
 ### Step 2: Register the Controller
 
 ```typescript title="src/index.ts"
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 import { UserController } from "./controllers/UserController";
 
 const app = new AzuraClient();
@@ -137,7 +138,8 @@ await app.listen();
 Register multiple controllers at once:
 
 ```typescript title="src/index.ts"
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 import { UserController } from "./controllers/UserController";
 import { ProductController } from "./controllers/ProductController";
 import { AuthController } from "./controllers/AuthController";
@@ -183,7 +185,8 @@ export { AuthController } from "./AuthController";
 Then import all at once:
 
 ```typescript title="src/index.ts"
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 import * as controllers from "./controllers";
 
 const app = new AzuraClient();

@@ -141,7 +141,7 @@ export class AzuraClient {
    * ```
    */
   public proxy(path: string, target: string, options: Partial<ProxyOptions> = {}) {
-    const proxyMiddleware = proxyPlugin(target, options);
+    const proxyMiddleware = proxyPlugin(target, options) as RequestHandler;
 
     // Adicionar à lista de proxies
     this.proxies.push({ path, handler: proxyMiddleware });
@@ -267,7 +267,7 @@ export class AzuraClient {
       get: (name: string) => request.headers.get(name.toLowerCase()) || undefined,
       header: (name: string) => request.headers.get(name.toLowerCase()) || undefined,
     } as Partial<RequestServer>;
-    
+
     // Resolve IP for fetch handler
     const forwardedFor = request.headers.get("x-forwarded-for");
     if (this.opts.server?.trustProxy && forwardedFor) {
@@ -278,7 +278,7 @@ export class AzuraClient {
       rawReq.ip = "";
       rawReq.ips = [];
     }
-    
+
     const finalReq = rawReq as Partial<RequestServer>;
 
     let statusCode = 200;
@@ -407,7 +407,7 @@ export class AzuraClient {
     rawReq.secure = rawReq.protocol === "https";
     rawReq.hostname = String(rawReq.headers["host"] || "").split(":")[0] || "";
     rawReq.subdomains = rawReq.hostname ? rawReq.hostname.split(".").slice(0, -2) : [];
-    
+
     // Resolve IP using configured trust proxy settings
     const { ip, ips } = resolveIp(rawReq, {
       trustProxy: this.opts.server?.trustProxy,
@@ -415,7 +415,7 @@ export class AzuraClient {
     });
     rawReq.ip = ip;
     rawReq.ips = ips;
-    
+
     rawReq.get = rawReq.header = (name: string) => {
       const v = rawReq.headers[name.toLowerCase()];
       if (Array.isArray(v)) return v[0];
@@ -584,7 +584,12 @@ export class AzuraClient {
           await middlewareNext();
 
           if (!middlewareError) {
-            await proxy.handler(rawReq, rawRes, middlewareNext);
+            const handler = proxy.handler as (
+              req: RequestServer,
+              res: ResponseServer,
+              next?: any
+            ) => void | Promise<void>;
+            await handler(rawReq, rawRes, middlewareNext);
           }
           return;
         }

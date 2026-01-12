@@ -80,11 +80,11 @@ const config = {
 module.exports = config;
 ```
 
-## Passo 2: Criar Seu Primeiro Controller 🎯
+## Passo 2: Criar Seu Servidor 🎯
 
-### TypeScript
+### TypeScript com Decorators
 
-Crie `src/controllers/UserController.ts`:
+Crie o controller com decorators em `src/controllers/UserController.ts`:
 
 ```typescript title="src/controllers/UserController.ts"
 import { Controller, Get, Post, Put, Delete, Body, Param, Res } from "azurajs/decorators";
@@ -184,34 +184,9 @@ export class UserController {
 }
 ```
 
-## Passo 3: Criar o Servidor 🖥️
+### API Funcional JavaScript
 
-### TypeScript
-
-Crie `src/index.ts`:
-
-```typescript title="src/index.ts"
-import { AzuraClient, applyDecorators } from "azurajs";
-import { createLoggingMiddleware } from "azurajs/middleware";
-import { UserController } from "./controllers/UserController";
-
-// Criar a instância da aplicação
-const app = new AzuraClient();
-
-// Adicionar middleware de logging
-const logger = createLoggingMiddleware(app.getConfig());
-app.use(logger);
-
-// Registrar controllers
-applyDecorators(app, [UserController]);
-
-// Iniciar o servidor
-await app.listen();
-```
-
-### JavaScript
-
-Crie `src/index.js`:
+Crie o servidor com roteamento funcional em `src/index.js`:
 
 ```javascript title="src/index.js"
 const { AzuraClient } = require("azurajs");
@@ -306,14 +281,50 @@ app.delete("/api/users/:id", ({ req, res }) => {
   res.json({ 
     success: true, 
     message: "Usuário deletado com sucesso" 
-  });
+    });
 });
 
 // Iniciar o servidor
-app.listen();
+await app.listen();
 ```
 
+## Passo 3: Criar Ponto de Entrada (apenas TypeScript) 🖥️
+
+<Callout type="info">
+Para JavaScript, você já criou o servidor completo no Passo 2. Para TypeScript com decorators, você precisa de um ponto de entrada separado.
+</Callout>
+
+### TypeScript
+
+Crie `src/index.ts`:
+
+```typescript title="src/index.ts"
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
+import { createLoggingMiddleware } from "azurajs/middleware";
+import { UserController } from "./controllers/UserController";
+
+// Criar a instância da aplicação
+const app = new AzuraClient();
+
+// Adicionar middleware de logging
+const logger = createLoggingMiddleware(app.getConfig());
+app.use(logger);
+
+// Registrar controllers
+applyDecorators(app, [UserController]);
+
+// Iniciar o servidor
+await app.listen();
+```
+
+### JavaScript
+
+Seu servidor já está completo no `src/index.js` do Passo 2!
+
 ## Passo 4: Executar Seu Servidor 🏃
+
+### TypeScript
 
 Execute sua aplicação:
 
@@ -329,6 +340,26 @@ npx tsx src/index.ts
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts"
+  }
+}
+```
+
+### JavaScript
+
+Execute sua aplicação:
+
+```bash
+# Com Bun (recomendado)
+bun run src/index.js
+
+# Com Node.js
+node src/index.js
+
+# Ou adicione aos scripts do package.json
+{
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js"
   }
 }
 ```
@@ -392,10 +423,20 @@ curl -X DELETE http://localhost:3000/api/users/2
 
 Você acabou de construir uma API RESTful completa com AzuraJS! Aqui está o que você aprendeu:
 
+### TypeScript
+
 - ✅ Como configurar AzuraJS
 - ✅ Como criar controllers com decorators
 - ✅ Como usar decorators de parâmetros (`@Body`, `@Param`, `@Res`)
 - ✅ Como registrar controllers com `applyDecorators`
+- ✅ Como iniciar o servidor
+
+### JavaScript
+
+- ✅ Como configurar AzuraJS
+- ✅ Como definir rotas com API funcional
+- ✅ Como tratar parâmetros de requisição e corpo
+- ✅ Como usar middleware
 - ✅ Como iniciar o servidor
 
 ## Próximos Passos? 📚

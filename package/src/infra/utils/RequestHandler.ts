@@ -23,6 +23,12 @@ export function adaptRequestHandler(mw: any) {
             reject(e);
           }
         });
+      } else if (mw.length === 1) {
+        await mw({
+          req: ctx.request,
+          res: ctx.response,
+          next: ctx.next,
+        });
       } else {
         await mw(ctx);
       }

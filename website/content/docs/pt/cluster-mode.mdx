@@ -38,7 +38,8 @@ Só isso! Quando `cluster: true` está definido, AzuraJS automaticamente:
 Nenhum código de cluster manual é necessário. O código da sua aplicação permanece simples:
 
 ```typescript title="index.ts"
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 import { HomeController } from "./controllers/HomeController";
 
 const app = new AzuraClient();
@@ -326,7 +327,8 @@ if (cluster.isPrimary) {
 ```typescript
 import cluster from "cluster";
 import { cpus } from "os";
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 import { UserController } from "./controllers/UserController";
 
 const numCPUs = cpus().length;
@@ -681,7 +683,8 @@ if (cluster.isPrimary) {
 // server.ts
 import cluster from "cluster";
 import { cpus } from "os";
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 import { createClient } from "redis";
 import { UserController } from "./controllers/UserController";
 

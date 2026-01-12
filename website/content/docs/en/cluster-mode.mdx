@@ -38,7 +38,8 @@ That's it! When `cluster: true` is set, AzuraJS automatically:
 No manual cluster code is needed. Your application code remains simple:
 
 ```typescript title="index.ts"
-import { AzuraClient, applyDecorators } from "azurajs";
+import { AzuraClient } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 import { HomeController } from "./controllers/HomeController";
 
 const app = new AzuraClient();

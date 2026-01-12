@@ -763,7 +763,7 @@ throw new HttpError(400, "Invalid input", { field: "email" });
 Apply controller decorators to the app.
 
 ```typescript
-import { applyDecorators } from "azurajs";
+import { applyDecorators } from "azurajs/decorators";
 import { UserController } from "./controllers/UserController";
 
 applyDecorators(app, [UserController]);

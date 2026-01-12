@@ -1,103 +1,526 @@
 ---
 title: Cookies
-description: Work with cookies in AzuraJS
+description: Advanced cookie management with signing, encryption, and sessions
 icon: Cookie
 ---
 
 # Cookies 🍪
 
-AzuraJS provides built-in utilities for parsing and serializing cookies.
+AzuraJS provides a powerful cookie management system with signing, encryption, and session support - similar to Express but with more features.
 
-## Parsing Cookies 📖
-
-Extract cookies from request headers:
-
-### TypeScript
+## Quick Start 🚀
 
 ```typescript
-import { Get, Req, Res } from "azurajs/decorators";
-import { parseCookiesHeader } from "azurajs/cookies";
-import type { RequestServer, ResponseServer } from "azurajs";
+import { CookieJar, SessionManager, MemorySessionStore, CookiePresets } from 'azurajs/cookies';
 
-@Get("/profile")
-getProfile(@Req() req: RequestServer, @Res() res: ResponseServer) {
-  const cookies = parseCookiesHeader(req.headers.cookie || "");
-  const sessionId = cookies.sessionId;
-  
-  res.json({ sessionId });
-}
+// Simple cookie usage
+const jar = new CookieJar();
+const cookie = jar.set('user_id', '123', {
+  httpOnly: true,
+  secure: true,
+  maxAge: 3600 // 1 hour
+});
+
+res.setHeader('Set-Cookie', cookie);
 ```
 
-### JavaScript
+## CookieJar 🫙
 
-```javascript
-const { parseCookiesHeader } = require("azurajs/cookies");
+Advanced cookie manager with signing and encryption support.
 
-app.get("/profile", ({ req, res }) => {
-  const cookies = parseCookiesHeader(req.headers.cookie || "");
-  const sessionId = cookies.sessionId;
+### Basic Usage
+
+```typescript
+import { CookieJar } from 'azurajs/cookies';
+
+const jar = new CookieJar();
+
+// Set a cookie
+app.get('/set', (req, res) => {
+  const cookie = jar.set('username', 'john_doe', {
+    maxAge: 86400, // 24 hours
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax'
+  });
   
-  res.json({ sessionId });
+  res.setHeader('Set-Cookie', cookie);
+  res.json({ message: 'Cookie set!' });
+});
+
+// Get a cookie
+app.get('/get', (req, res) => {
+  const username = jar.get('username');
+  res.json({ username });
+});
+
+// Delete a cookie
+app.get('/delete', (req, res) => {
+  const cookie = jar.delete('username');
+  res.setHeader('Set-Cookie', cookie);
+  res.json({ message: 'Cookie deleted' });
 });
 ```
 
-## Setting Cookies 🔧
+### Signed Cookies 🔏
 
-Set cookies in the response:
-
-### TypeScript
+Protect against cookie tampering with signed cookies:
 
 ```typescript
-import { Post, Body, Res } from "azurajs/decorators";
-import { serializeCookie } from "azurajs/cookies";
-import type { ResponseServer } from "azurajs";
+// Create jar with secret
+const jar = new CookieJar('my-secret-key');
 
-@Post("/login")
-login(@Body() credentials: any, @Res() res: ResponseServer) {
-  // Authenticate user...
-  const sessionId = generateSessionId();
+// Set signed cookie
+app.post('/auth/login', (req, res) => {
+  const userId = authenticateUser(req.body);
   
-  const cookie = serializeCookie("sessionId", sessionId, {
+  const cookie = jar.set('auth_token', userId, {
+    signed: true,
     httpOnly: true,
     secure: true,
-    maxAge: 3600, // 1 hour
-    path: "/",
+    sameSite: 'strict',
+    maxAge: 86400
   });
   
-  res.setHeader("Set-Cookie", cookie);
-  res.json({ success: true });
-}
-```
+  res.setHeader('Set-Cookie', cookie);
+  res.json({ message: 'Logged in' });
+});
 
-### JavaScript
-
-```javascript
-const { serializeCookie } = require("azurajs/cookies");
-
-app.post("/login", ({ req, res }) => {
-  // Authenticate user...
-  const sessionId = generateSessionId();
+// Verify signed cookie
+app.get('/auth/verify', (req, res) => {
+  const authToken = jar.get('auth_token', true); // true = verify signature
   
-  const cookie = serializeCookie("sessionId", sessionId, {
-    httpOnly: true,
-    secure: true,
-    maxAge: 3600, // 1 hour
-    path: "/",
-  });
+  if (!authToken) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
   
-  res.setHeader("Set-Cookie", cookie);
-  res.json({ success: true });
+  res.json({ userId: authToken, authenticated: true });
 });
 ```
 
-## Cookie Options ⚙️
+### Encrypted Cookies 🔐
+
+Store sensitive data securely:
+
+```typescript
+const jar = new CookieJar('encryption-secret-key');
+
+// Encrypt sensitive data
+app.post('/secure/set', (req, res) => {
+  const sensitiveData = JSON.stringify({
+    ssn: '123-45-6789',
+    creditCard: '1234-5678-9012-3456'
+  });
+  
+  const cookie = jar.set('secure_data', sensitiveData, {
+    encrypted: true,
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict'
+  });
+  
+  res.setHeader('Set-Cookie', cookie);
+  res.json({ message: 'Secure data stored' });
+});
+
+// Decrypt cookie
+app.get('/secure/get', (req, res) => {
+  const encryptedData = jar.get('secure_data', false, true); // true = decrypt
+  
+  if (!encryptedData) {
+    return res.status(404).json({ error: 'No data found' });
+  }
+  
+  const data = JSON.parse(encryptedData);
+  res.json(data);
+});
+```
+
+## Session Management 💼
+
+Built-in session management with cookie-based storage.
+
+### Basic Sessions
+
+```typescript
+import { SessionManager, MemorySessionStore } from 'azurajs/cookies';
+
+const sessionManager = new SessionManager(new MemorySessionStore(), {
+  cookieName: 'azura.sid',
+  secret: 'session-secret-key',
+  cookieOptions: {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: 86400 // 24 hours
+  }
+});
+
+// Middleware to load sessions
+app.use(async (req, res, next) => {
+  const session = await sessionManager.get(req.cookies);
+  
+  if (session) {
+    req.session = session.data;
+    req.sessionId = session.id;
+  }
+  
+  next();
+});
+
+// Create session on login
+app.post('/session/login', async (req, res) => {
+  const { email, password } = req.body;
+  
+  // Validate credentials...
+  
+  const { id, cookie } = await sessionManager.create({
+    userId: '12345',
+    email,
+    loginAt: new Date()
+  });
+  
+  res.setHeader('Set-Cookie', cookie);
+  res.json({
+    message: 'Session created',
+    sessionId: id
+  });
+});
+
+// Access session data
+app.get('/session/data', (req, res) => {
+  if (!req.session) {
+    return res.status(401).json({ error: 'No active session' });
+  }
+  
+  res.json({ session: req.session });
+});
+
+// Destroy session
+app.post('/session/logout', async (req, res) => {
+  if (req.sessionId) {
+    const cookie = await sessionManager.destroy(req.sessionId);
+    res.setHeader('Set-Cookie', cookie);
+  }
+  
+  res.json({ message: 'Logged out' });
+});
+```
+
+### Custom Session Store
+
+Implement your own session storage (Redis, MongoDB, etc.):
+
+```typescript
+import { SessionStore } from 'azurajs/cookies';
+
+class RedisSessionStore implements SessionStore {
+  private redis: RedisClient;
+  
+  constructor(redisClient: RedisClient) {
+    this.redis = redisClient;
+  }
+  
+  async get(id: string): Promise<any | undefined> {
+    const data = await this.redis.get(`session:${id}`);
+    return data ? JSON.parse(data) : undefined;
+  }
+  
+  async set(id: string, data: any, maxAge: number): Promise<void> {
+    await this.redis.set(
+      `session:${id}`,
+      JSON.stringify(data),
+      'PX',
+      maxAge
+    );
+  }
+  
+  async destroy(id: string): Promise<void> {
+    await this.redis.del(`session:${id}`);
+  }
+  
+  async touch(id: string, maxAge: number): Promise<void> {
+    await this.redis.expire(`session:${id}`, Math.floor(maxAge / 1000));
+  }
+}
+
+// Use custom store
+const sessionManager = new SessionManager(
+  new RedisSessionStore(redisClient),
+  { cookieName: 'sid', secret: 'secret' }
+);
+```
+
+## Cookie Presets 🎨
+
+Pre-configured cookie options for common use cases:
+
+```typescript
+import { CookiePresets } from 'azurajs/cookies';
+
+// Session cookie (24 hours)
+res.cookie('user', data, CookiePresets.session(true));
+
+// Remember me cookie (30 days)
+res.cookie('remember_token', token, CookiePresets.rememberMe(true));
+
+// Tracking cookie (1 year)
+res.cookie('tracking_id', id, CookiePresets.tracking());
+
+// Flash message (session-only)
+res.cookie('flash', message, CookiePresets.flash(true));
+
+// CSRF token
+res.cookie('csrf_token', token, CookiePresets.csrf(true));
+```
+
+## Cookie Options 📋
+
+Complete list of available cookie options:
+
+```typescript
+interface CookieOptions {
+  domain?: string;           // Cookie domain
+  encode?: (value: string) => string;  // Custom encoder
+  expires?: Date;            // Expiration date
+  httpOnly?: boolean;        // HTTP only flag
+  maxAge?: number;           // Max age in seconds
+  path?: string;             // Cookie path
+  sameSite?: 'strict' | 'lax' | 'none';  // SameSite policy
+  secure?: boolean;          // Secure flag (HTTPS only)
+  signed?: boolean;          // Sign cookie
+  encrypted?: boolean;       // Encrypt cookie
+  priority?: 'low' | 'medium' | 'high';  // Priority (Chrome)
+}
+```
 
 ### httpOnly
 
-Prevents JavaScript from accessing the cookie (security):
+Prevents JavaScript access (security):
 
 ```typescript
-serializeCookie("token", "value", {
+jar.set('token', 'value', {
+  httpOnly: true  // Cannot be accessed via document.cookie
+});
+```
+
+### secure
+
+Only sent over HTTPS:
+
+```typescript
+jar.set('token', 'value', {
+  secure: true  // HTTPS only
+});
+```
+
+### sameSite
+
+CSRF protection:
+
+```typescript
+jar.set('token', 'value', {
+  sameSite: 'strict'  // Never sent on cross-site requests
+});
+
+jar.set('token', 'value', {
+  sameSite: 'lax'  // Sent on top-level navigation
+});
+
+jar.set('token', 'value', {
+  sameSite: 'none',  // Sent on all requests
+  secure: true       // Must be secure when sameSite=none
+});
+```
+
+### maxAge vs expires
+
+```typescript
+// Max age (relative)
+jar.set('token', 'value', {
+  maxAge: 3600  // Expires in 1 hour
+});
+
+// Expires (absolute)
+jar.set('token', 'value', {
+  expires: new Date('2025-12-31')
+});
+```
+
+### domain and path
+
+Control cookie scope:
+
+```typescript
+// Available on all subdomains
+jar.set('data', 'value', {
+  domain: '.example.com',  // *.example.com
+  path: '/'
+});
+
+// Only on specific path
+jar.set('admin_token', 'secret', {
+  path: '/admin'  // Only /admin/* routes
+});
+```
+
+## Advanced Patterns 🎯
+
+### Flash Messages
+
+Temporary messages that expire after being read:
+
+```typescript
+app.use((req, res, next) => {
+  // Get flash message
+  const flash = req.cookies['_flash'];
+  if (flash) {
+    req.flash = JSON.parse(decodeURIComponent(flash));
+    // Clear flash cookie
+    res.clearCookie('_flash', { path: '/' });
+  }
+  
+  // Helper to set flash
+  res.setFlash = function(type: string, message: string) {
+    const flashData = JSON.stringify({ type, message });
+    this.cookie('_flash', flashData, CookiePresets.flash());
+    return this;
+  };
+  
+  next();
+});
+
+// Usage
+app.post('/action', (req, res) => {
+  // Do something...
+  res.setFlash('success', 'Action completed!');
+  res.redirect('/dashboard');
+});
+
+app.get('/dashboard', (req, res) => {
+  res.json({
+    flash: req.flash || null,  // { type: 'success', message: 'Action completed!' }
+    message: 'Dashboard'
+  });
+});
+```
+
+### CSRF Protection
+
+```typescript
+const csrfTokens = new Map<string, number>();
+
+app.use((req, res, next) => {
+  // Generate CSRF token
+  if (!req.cookies['csrf_token']) {
+    const token = generateCSRFToken();
+    csrfTokens.set(token, Date.now() + 3600000); // 1 hour
+    
+    res.cookie('csrf_token', token, CookiePresets.csrf(true));
+  }
+  
+  next();
+});
+
+app.post('/protected-action', (req, res) => {
+  const token = req.header('x-csrf-token') || req.body.csrfToken;
+  const cookieToken = req.cookies['csrf_token'];
+  
+  if (!token || token !== cookieToken || !csrfTokens.has(token)) {
+    return res.status(403).json({ error: 'Invalid CSRF token' });
+  }
+  
+  // Check expiration
+  const expiry = csrfTokens.get(token)!;
+  if (expiry < Date.now()) {
+    csrfTokens.delete(token);
+    return res.status(403).json({ error: 'CSRF token expired' });
+  }
+  
+  // Process action...
+  res.json({ message: 'Action completed' });
+});
+```
+
+### Remember Me
+
+```typescript
+app.post('/remember-me', (req, res) => {
+  const { email, rememberMe } = req.body;
+  
+  if (rememberMe) {
+    // Use remember-me preset (30 days)
+    res.cookie('user_email', email, CookiePresets.rememberMe(true));
+  } else {
+    // Use session preset (24 hours)
+    res.cookie('user_email', email, CookiePresets.session(true));
+  }
+  
+  res.json({ message: 'Preference saved' });
+});
+```
+
+## Best Practices 💎
+
+1. **Always use `httpOnly`** for authentication tokens
+2. **Enable `secure`** in production (HTTPS)
+3. **Use `sameSite`** for CSRF protection
+4. **Sign sensitive cookies** to prevent tampering
+5. **Encrypt PII** (personally identifiable information)
+6. **Set appropriate `maxAge`** to limit exposure
+7. **Use domain/path** to limit cookie scope
+8. **Clean up expired sessions** regularly
+
+## Migration from Express 🔄
+
+```typescript
+// Express
+app.use(require('cookie-parser')('secret'));
+res.cookie('name', 'value', { signed: true });
+const value = req.signedCookies.name;
+
+// Azura
+const jar = new CookieJar('secret');
+const cookie = jar.set('name', 'value', { signed: true });
+res.setHeader('Set-Cookie', cookie);
+const value = jar.get('name', true);
+```
+
+Almost the same, but more powerful! 🎉
+
+## API Reference 📖
+
+### CookieJar
+
+- `new CookieJar(secret?: string)` - Create cookie manager
+- `set(name, value, options)` - Set cookie
+- `get(name, signed?, encrypted?)` - Get cookie value
+- `delete(name, options?)` - Delete cookie
+- `has(name)` - Check if cookie exists
+- `all()` - Get all cookies
+- `clear()` - Clear all cookies
+
+### SessionManager
+
+- `new SessionManager(store, options)` - Create session manager
+- `get(cookies)` - Get session
+- `create(data)` - Create new session
+- `update(id, data)` - Update session
+- `destroy(id)` - Destroy session
+- `touch(id)` - Update expiration
+
+### CookiePresets
+
+- `session(secure?)` - Session cookie (24h)
+- `rememberMe(secure?)` - Remember me (30 days)
+- `tracking(secure?)` - Tracking cookie (1 year)
+- `flash(secure?)` - Flash message (session-only)
+- `csrf(secure?)` - CSRF token
+
+## Examples 📚
+
+Check out the complete examples:
+- [cookies.example.ts](https://github.com/0xvin/azurajs/blob/main/examples/servers/cookies.example.ts) - All cookie features
   httpOnly: true  // Recommended for session cookies
 });
 ```

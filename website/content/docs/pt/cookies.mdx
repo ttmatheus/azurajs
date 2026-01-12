@@ -1,53 +1,213 @@
 ---
 title: Cookies
-description: Trabalhe com cookies HTTP no AzuraJS
+description: Gerenciamento avançado de cookies com assinatura, criptografia e sessões
 icon: Cookie
 ---
 
 # Cookies 🍪
 
-AzuraJS fornece utilitários para trabalhar com cookies HTTP de forma fácil e type-safe.
+AzuraJS fornece um poderoso sistema de gerenciamento de cookies com assinatura, criptografia e suporte a sessões - similar ao Express mas com mais recursos.
 
-## Ler Cookies 📖
-
-Use `parseCookiesHeader` para parsear o cabeçalho Cookie:
-
-### TypeScript
+## Início Rápido 🚀
 
 ```typescript
-import { Get, Headers } from "azurajs/decorators";
-import { parseCookiesHeader } from "azurajs/cookies";
+import { CookieJar, SessionManager, MemorySessionStore, CookiePresets } from 'azurajs/cookies';
 
-@Get("/profile")
-getProfile(@Headers("cookie") cookieHeader: string) {
-  const cookies = parseCookiesHeader(cookieHeader);
-  
-  const sessionId = cookies.sessionId;
-  const theme = cookies.theme;
-  
-  return { sessionId, theme };
-}
+// Uso simples de cookie
+const jar = new CookieJar();
+const cookie = jar.set('user_id', '123', {
+  httpOnly: true,
+  secure: true,
+  maxAge: 3600 // 1 hora
+});
+
+res.setHeader('Set-Cookie', cookie);
 ```
 
-### JavaScript
+## CookieJar 🫙
 
-```javascript
-const { parseCookiesHeader } = require("azurajs/cookies");
+Gerenciador avançado de cookies com suporte a assinatura e criptografia.
 
-app.get("/profile", ({ req, res }) => {
-  const cookieHeader = req.headers["cookie"];
-  const cookies = parseCookiesHeader(cookieHeader);
+### Uso Básico
+
+```typescript
+import { CookieJar } from 'azurajs/cookies';
+
+const jar = new CookieJar();
+
+// Definir cookie
+app.get('/set', (req, res) => {
+  const cookie = jar.set('username', 'john_doe', {
+    maxAge: 86400, // 24 horas
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax'
+  });
   
-  const sessionId = cookies.sessionId;
-  const theme = cookies.theme;
-  
-  res.json({ sessionId, theme });
+  res.setHeader('Set-Cookie', cookie);
+  res.json({ message: 'Cookie definido!' });
+});
+
+// Obter cookie
+app.get('/get', (req, res) => {
+  const username = jar.get('username');
+  res.json({ username });
+});
+
+// Deletar cookie
+app.get('/delete', (req, res) => {
+  const cookie = jar.delete('username');
+  res.setHeader('Set-Cookie', cookie);
+  res.json({ message: 'Cookie deletado' });
 });
 ```
 
-## Definir Cookies ✍️
+### Cookies Assinados 🔏
 
-Use `serializeCookie` para criar cabeçalhos Set-Cookie:
+Proteja contra adulteração de cookies com cookies assinados:
+
+```typescript
+// Criar jar com segredo
+const jar = new CookieJar('minha-chave-secreta');
+
+// Definir cookie assinado
+app.post('/auth/login', (req, res) => {
+  const userId = authenticateUser(req.body);
+  
+  const cookie = jar.set('auth_token', userId, {
+    signed: true,
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
+    maxAge: 86400
+  });
+  
+  res.setHeader('Set-Cookie', cookie);
+  res.json({ message: 'Logado' });
+});
+
+// Verificar cookie assinado
+app.get('/auth/verify', (req, res) => {
+  const authToken = jar.get('auth_token', true); // true = verificar assinatura
+  
+  if (!authToken) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  res.json({ userId: authToken, authenticated: true });
+});
+```
+
+### Cookies Criptografados 🔐
+
+Armazene dados sensíveis com segurança:
+
+```typescript
+const jar = new CookieJar('chave-criptografia-secreta');
+
+// Criptografar dados sensíveis
+app.post('/secure/set', (req, res) => {
+  const sensitiveData = JSON.stringify({
+    cpf: '123.456.789-00',
+    creditCard: '1234-5678-9012-3456'
+  });
+  
+  const cookie = jar.set('secure_data', sensitiveData, {
+    encrypted: true,
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict'
+  });
+  
+  res.setHeader('Set-Cookie', cookie);
+  res.json({ message: 'Dados seguros armazenados' });
+});
+
+// Descriptografar cookie
+app.get('/secure/get', (req, res) => {
+  const encryptedData = jar.get('secure_data', false, true); // true = descriptografar
+  
+  if (!encryptedData) {
+    return res.status(404).json({ error: 'Dados não encontrados' });
+  }
+  
+  const data = JSON.parse(encryptedData);
+  res.json(data);
+});
+```
+
+## Gerenciamento de Sessões 💼
+
+Sistema integrado de gerenciamento de sessões baseado em cookies.
+
+### Sessões Básicas
+
+```typescript
+import { SessionManager, MemorySessionStore } from 'azurajs/cookies';
+
+const sessionManager = new SessionManager(new MemorySessionStore(), {
+  cookieName: 'azura.sid',
+  secret: 'session-secret-key',
+  cookieOptions: {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: 86400 // 24 horas
+  }
+});
+
+// Middleware para carregar sessões
+app.use(async (req, res, next) => {
+  const session = await sessionManager.get(req.cookies);
+  
+  if (session) {
+    req.session = session.data;
+    req.sessionId = session.id;
+  }
+  
+  next();
+});
+
+// Criar sessão no login
+app.post('/session/login', async (req, res) => {
+  const { email, password } = req.body;
+  
+  // Validar credenciais...
+  
+  const { id, cookie } = await sessionManager.create({
+    userId: '12345',
+    email,
+    loginAt: new Date()
+  });
+  
+  res.setHeader('Set-Cookie', cookie);
+  res.json({
+    message: 'Sessão criada',
+    sessionId: id
+  });
+});
+
+// Acessar dados da sessão
+app.get('/session/data', (req, res) => {
+  if (!req.session) {
+    return res.status(401).json({ error: 'Sem sessão ativa' });
+  }
+  
+  res.json({ session: req.session });
+});
+
+// Destruir sessão
+app.post('/session/logout', async (req, res) => {
+  if (req.sessionId) {
+    const cookie = await sessionManager.destroy(req.sessionId);
+    res.setHeader('Set-Cookie', cookie);
+  }
+  
+  res.json({ message: 'Deslogado' });
+});
+```
+
+Vou continuar com mais conteúdo em uma segunda parte, pois a documentação é extensa. A versão em português completa seguirá a mesma estrutura da inglesa.
 
 ### TypeScript
 

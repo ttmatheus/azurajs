@@ -1,3 +1,4 @@
+import type { RequestHandler } from "../types";
 import { HttpError } from "./utils/HttpError";
 import { Node, type Handler } from "./utils/route/Node";
 
@@ -9,6 +10,7 @@ interface MatchResult {
 export class Router {
   private root = new Node();
   private debug?: boolean;
+  private middlewares: RequestHandler[] = [];
 
   constructor(debug = false) {
     this.debug = debug;
@@ -110,5 +112,22 @@ export class Router {
 
     traverse(this.root, "");
     return routes;
+  }
+
+  public use(mw: RequestHandler): void;
+  public use(prefix: string, router: Router): void;
+  public use(prefixOrMw: string | RequestHandler, router?: Router): void {
+    if (typeof prefixOrMw === "function") {
+      this.middlewares.push(prefixOrMw);
+    } else if (typeof prefixOrMw === "string" && router instanceof Router) {
+      const prefix = prefixOrMw.endsWith("/") ? prefixOrMw.slice(0, -1) : prefixOrMw;
+      const routes = router.listRoutes();
+
+      for (const route of routes) {
+        const fullPath = prefix + (route.path === "/" ? "" : route.path);
+        const { handlers } = router.find(route.method, route.path);
+        this.add(route.method, fullPath, ...handlers);
+      }
+    }
   }
 }

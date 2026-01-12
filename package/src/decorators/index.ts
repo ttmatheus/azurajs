@@ -20,5 +20,3 @@ export {
 } from "./Route";
 
 export type { RouteDefinition, ParamDefinition, ParamSource } from "../types/routes.type";
-export type { RequestServer } from "../types/http/request.type";
-export type { ResponseServer } from "../types/http/response.type";

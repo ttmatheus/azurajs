@@ -14,6 +14,7 @@ import { adaptRequestHandler } from "./utils/RequestHandler";
 import { Router } from "./Router";
 import type { RequestHandler } from "../types/common.type";
 import { getIP } from "./utils/GetIp";
+import { resolveIp } from "./utils/IpResolver";
 import type { Handler } from "./utils/route/Node";
 import { cors } from "../shared/plugins/CORSPlugin";
 import { rateLimit } from "../shared/plugins/RateLimitPlugin";
@@ -265,9 +266,20 @@ export class AzuraClient {
       headers: headersObj as any,
       get: (name: string) => request.headers.get(name.toLowerCase()) || undefined,
       header: (name: string) => request.headers.get(name.toLowerCase()) || undefined,
-      ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "",
-      ips: request.headers.get("x-forwarded-for")?.split(/\s*,\s*/) || [],
-    };
+    } as Partial<RequestServer>;
+    
+    // Resolve IP for fetch handler
+    const forwardedFor = request.headers.get("x-forwarded-for");
+    if (this.opts.server?.trustProxy && forwardedFor) {
+      const ips = forwardedFor.split(/\s*,\s*/);
+      rawReq.ip = ips[0] || "";
+      rawReq.ips = ips;
+    } else {
+      rawReq.ip = "";
+      rawReq.ips = [];
+    }
+    
+    const finalReq = rawReq as Partial<RequestServer>;
 
     let statusCode = 200;
     const responseHeaders = new Headers();
@@ -395,8 +407,15 @@ export class AzuraClient {
     rawReq.secure = rawReq.protocol === "https";
     rawReq.hostname = String(rawReq.headers["host"] || "").split(":")[0] || "";
     rawReq.subdomains = rawReq.hostname ? rawReq.hostname.split(".").slice(0, -2) : [];
-    const ipsRaw = rawReq.headers["x-forwarded-for"];
-    rawReq.ips = typeof ipsRaw === "string" ? ipsRaw.split(/\s*,\s*/) : [];
+    
+    // Resolve IP using configured trust proxy settings
+    const { ip, ips } = resolveIp(rawReq, {
+      trustProxy: this.opts.server?.trustProxy,
+      ipHeader: this.opts.server?.ipHeader,
+    });
+    rawReq.ip = ip;
+    rawReq.ips = ips;
+    
     rawReq.get = rawReq.header = (name: string) => {
       const v = rawReq.headers[name.toLowerCase()];
       if (Array.isArray(v)) return v[0];
@@ -489,10 +508,6 @@ export class AzuraClient {
 
     rawReq.cookies = parseCookiesHeader((rawReq.headers["cookie"] as string) || "");
     rawReq.params = {};
-
-    const ipRaw = rawReq.headers["x-forwarded-for"] || rawReq.socket.remoteAddress || "";
-    const ipStr = Array.isArray(ipRaw) ? ipRaw[0] : ipRaw;
-    rawReq.ip = String(ipStr).split(",")[0]?.trim() || "";
 
     rawReq.body = {};
     if (["POST", "PUT", "PATCH"].includes((rawReq.method || "").toUpperCase())) {

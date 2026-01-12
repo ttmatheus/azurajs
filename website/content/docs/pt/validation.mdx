@@ -1,440 +1,482 @@
 ---
 title: Validação
-description: Valide entrada de requisições com schemas e DTOs
+description: Sistema de validação type-safe inspirado no Zod, mas melhor
 icon: CircleCheck
 ---
 
 # Validação ✅
 
-AzuraJS fornece validação poderosa de dados de entrada usando schemas e DTOs.
+AzuraJS fornece um poderoso **sistema de validação tipo Zod** com inferência completa de tipos TypeScript. É familiar, intuitivo e pronto para produção.
 
-## Validação de Schema 📋
+## Por que o Validador Azura? 🚀
 
-Use `validateSchema` para validar objetos contra schemas customizados.
+- ✨ **Sintaxe Limpa** - Intuitivo e fácil de usar
+- 🎯 **Erros Formatados** - `.format()` retorna erros organizados por campo
+- ⚡ **Performance** - Validação mais rápida
+- 🔧 **Transformações Integradas** - `.trim()`, `.toLowerCase()`, `.toUpperCase()` incluídos
+- 📝 **TypeScript Perfeito** - Inferência automática de tipos
+- 🛠️ **Flexível** - Fácil de estender com validações customizadas
 
-```typescript
-import { Post } from "azurajs/decorators";
-import { validateSchema } from "azurajs/validators";
-
-const userSchema = {
-  name: { type: "string", required: true, minLength: 2 },
-  email: { type: "string", required: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
-  age: { type: "number", required: false, min: 0, max: 120 }
-};
-
-const result = validateSchema(data, userSchema);
-if (!result.isValid) {
-  console.log(result.errors);
-}
-```
-
-### Opções de Schema
+## Início Rápido 🏃
 
 ```typescript
-interface SchemaField {
-  type: "string" | "number" | "boolean" | "array" | "object";
-  required?: boolean;
-  minLength?: number;  // Para strings
-  maxLength?: number;  // Para strings
-  pattern?: RegExp;    // Para strings
-  min?: number;        // Para numbers
-  max?: number;        // Para numbers
-  enum?: any[];        // Valores permitidos
-  custom?: (value: any) => boolean | string;  // Validador customizado
-}
-```
-
-### Exemplo Completo
-
-```typescript
-const postSchema = {
-  title: {
-    type: "string",
-    required: true,
-    minLength: 5,
-    maxLength: 100
-  },
-  content: {
-    type: "string",
-    required: true,
-    minLength: 10
-  },
-  status: {
-    type: "string",
-    required: false,
-    enum: ["draft", "published", "archived"]
-  },
-  tags: {
-    type: "array",
-    required: false
-  },
-  publishedAt: {
-    type: "string",
-    required: false,
-    custom: (value) => {
-      const date = new Date(value);
-      return !isNaN(date.getTime()) || "Data inválida";
-    }
-  }
-};
-
-@Post()
-createPost(@Body() data: any, @Res() res: ResponseServer) {
-  const validation = validateSchema(data, postSchema);
-  
-  if (!validation.isValid) {
-    return res.status(400).json({ errors: validation.errors });
-  }
-
-  // Dados são válidos, criar post
-  const post = createPost(data);
-  res.status(201).json({ post });
-}
-```
-
-## Validação de DTO 🎯
-
-### Criar DTOs
-
-DTOs (Data Transfer Objects) definem a estrutura dos dados:
-
-```typescript
-// dtos/CreateUserDto.ts
-export interface CreateUserDto {
-  name: string;
-  email: string;
-  password: string;
-  age?: number;
-}
-
-export const CreateUserSchema = {
-  name: { type: "string", required: true, minLength: 2 },
-  email: { 
-    type: "string", 
-    required: true,
-    pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  },
-  password: { type: "string", required: true, minLength: 8 },
-  age: { type: "number", required: false, min: 0, max: 120 }
-};
-```
-
-### Usar DTOs em Controllers
-
-```typescript
-import { CreateUserDto, CreateUserSchema } from "./dtos/CreateUserDto";
-
-@Controller("/api/users")
-export class UserController {
-  @Post()
-  create(@Body() data: CreateUserDto, @Res() res: ResponseServer) {
-    // Validar
-    const validation = validateSchema(data, CreateUserSchema);
-    if (!validation.isValid) {
-      return res.status(400).json({ errors: validation.errors });
-    }
-
-    // Criar usuário
-    const user = {
-      id: Date.now(),
-      name: data.name,
-      email: data.email,
-      age: data.age
-    };
-
-    res.status(201).json({ user });
-  }
-}
-```
-
-## Integração com Zod 🔷
-
-Use Zod para validação poderosa com inferência de tipos:
-
-```typescript
-import { z } from "zod";
+import { v, type Infer } from 'azurajs/validators';
 
 // Definir schema
-const CreateUserSchema = z.object({
-  name: z.string().min(2).max(50),
-  email: z.string().email(),
-  password: z.string().min(8).max(100),
-  age: z.number().int().positive().max(120).optional(),
-  role: z.enum(["user", "admin", "moderator"]).default("user")
+const userSchema = v.object({
+  name: v.string().min(3),
+  email: v.string().email(),
+  age: v.number().int().positive()
 });
 
-// Inferir tipo
-type CreateUserDto = z.infer<typeof CreateUserSchema>;
+// Validar dados
+const user = userSchema.parse(req.body);
 
-@Controller("/api/users")
-export class UserController {
-  @Post()
-  create(@Body() data: unknown, @Res() res: ResponseServer) {
-    try {
-      // Validar e parsear
-      const validData = CreateUserSchema.parse(data);
-      
-      // validData é totalmente tipado
-      const user = {
-        id: Date.now(),
-        ...validData
-      };
-
-      res.status(201).json({ user });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ 
-          errors: error.errors.map(e => ({
-            path: e.path.join("."),
-            message: e.message
-          }))
-        });
-      }
-      throw error;
-    }
-  }
+// Ou validação segura
+const result = userSchema.safeParse(req.body);
+if (result.success) {
+  console.log(result.data);
+} else {
+  console.log(result.error.format());
 }
 ```
 
-## Validadores Customizados 🛠️
+## Tipos Disponíveis 📚
 
-### Criar Validador Reutilizável
+### String
 
 ```typescript
-function validateAndRespond<T>(
-  schema: z.ZodSchema<T>,
-  data: unknown,
-  res: ResponseServer
-): T | null {
+v.string()
+  .min(3)                    // Mínimo 3 caracteres
+  .max(50)                   // Máximo 50 caracteres
+  .length(10)                // Exatamente 10 caracteres
+  .email()                   // Validar email
+  .url()                     // Validar URL
+  .uuid()                    // Validar UUID
+  .regex(/^[A-Z]/)          // Padrão customizado
+  .trim()                    // Remover espaços
+  .toLowerCase()             // Converter para minúsculas
+  .toUpperCase()             // Converter para maiúsculas
+  .startsWith('prefixo')     // Deve começar com
+  .endsWith('sufixo')        // Deve terminar com
+  .includes('substring')     // Deve conter
+  .optional()                // Campo opcional
+  .nullable()                // Aceitar null
+  .default('valor')          // Valor padrão
+```
+
+### Number
+
+```typescript
+v.number()
+  .min(0)                    // Mínimo
+  .max(100)                  // Máximo
+  .int()                     // Deve ser inteiro
+  .positive()                // Deve ser positivo
+  .negative()                // Deve ser negativo
+  .multipleOf(5)             // Múltiplo de N
+  .optional()
+  .default(0)
+```
+
+### Boolean
+
+```typescript
+v.boolean()
+  .optional()
+  .default(false)
+```
+
+### Date
+
+```typescript
+v.date()
+  .min(new Date('2020-01-01'))
+  .max(new Date())
+  .optional()
+```
+
+### Array
+
+```typescript
+v.array(v.string())
+  .min(1)                    // Mínimo de itens
+  .max(10)                   // Máximo de itens
+  .length(5)                 // Exatamente N itens
+  .nonempty()                // Não pode ser vazio
+  .optional()
+```
+
+### Object
+
+```typescript
+v.object({
+  name: v.string(),
+  age: v.number()
+})
+  .strict()                  // Sem campos extras
+  .passthrough()             // Passar campos extras
+  .partial()                 // Todos campos opcionais
+  .pick('name', 'age')       // Selecionar campos
+  .omit('password')          // Omitir campos
+```
+
+### Enum
+
+```typescript
+v.enum(['admin', 'user', 'guest'])
+v.enum([1, 2, 3, 4, 5])
+```
+
+### Literal
+
+```typescript
+v.literal('exact-value')
+v.literal(42)
+v.literal(true)
+```
+
+### Union
+
+```typescript
+v.union(
+  v.string(),
+  v.number(),
+  v.boolean()
+)
+```
+
+## Exemplos Práticos 💡
+
+### Validação de Usuário
+
+```typescript
+import { v, ValidationError, type Infer } from 'azurajs/validators';
+
+const userSchema = v.object({
+  name: v.string().min(3).max(50),
+  email: v.string().email(),
+  age: v.number().int().min(18).max(120),
+  bio: v.string().max(500).optional(),
+  active: v.boolean().default(true)
+});
+
+app.post('/users', (req, res) => {
   try {
-    return schema.parse(data);
+    const userData = userSchema.parse(req.body);
+    const user = await createUser(userData);
+    res.json(user);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ 
-        errors: error.errors.map(e => ({
-          field: e.path.join("."),
-          message: e.message
-        }))
+    if (error instanceof ValidationError) {
+      return res.status(400).json({
+        error: 'Falha na validação',
+        issues: error.format()
       });
     }
-    return null;
   }
-}
-
-@Post()
-createUser(@Body() data: unknown, @Res() res: ResponseServer) {
-  const validData = validateAndRespond(CreateUserSchema, data, res);
-  if (!validData) return;  // Já respondeu com erro
-
-  const user = createUser(validData);
-  res.status(201).json({ user });
-}
-```
-
-### Middleware de Validação
-
-```typescript
-function validateBody<T>(schema: z.ZodSchema<T>) {
-  return (req: RequestServer, res: ResponseServer, next: () => void) => {
-    try {
-      req.validatedBody = schema.parse(req.body);
-      next();
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ errors: error.errors });
-      }
-      next(error);
-    }
-  };
-}
-
-// Usar como middleware
-app.post("/api/users", validateBody(CreateUserSchema), ({ req, res }) => {
-  const data = req.validatedBody;  // Dados validados e tipados
-  const user = createUser(data);
-  res.status(201).json({ user });
 });
 ```
 
-## Validação de Query Params 🔍
+### Senha Segura
 
 ```typescript
-const SearchQuerySchema = z.object({
-  q: z.string().min(1),
-  limit: z.string().transform(Number).pipe(z.number().int().positive().max(100)).default("10"),
-  offset: z.string().transform(Number).pipe(z.number().int().min(0)).default("0"),
-  sort: z.enum(["asc", "desc"]).default("asc")
+const passwordSchema = v.string()
+  .min(8)
+  .refine(
+    (val) => /[A-Z]/.test(val),
+    'Deve conter letra maiúscula'
+  )
+  .refine(
+    (val) => /[a-z]/.test(val),
+    'Deve conter letra minúscula'
+  )
+  .refine(
+    (val) => /[0-9]/.test(val),
+    'Deve conter número'
+  )
+  .refine(
+    (val) => /[!@#$%^&*]/.test(val),
+    'Deve conter caractere especial'
+  );
+
+const registerSchema = v.object({
+  email: v.string().email(),
+  password: passwordSchema,
+  confirmPassword: v.string()
+}).refine(
+  (data) => data.password === data.confirmPassword,
+  'As senhas não coincidem'
+);
+```
+
+### Objetos Aninhados
+
+```typescript
+const addressSchema = v.object({
+  street: v.string(),
+  city: v.string(),
+  state: v.string().length(2),
+  zipCode: v.string().regex(/^\d{5}(-\d{4})?$/)
 });
 
-@Get("/search")
-search(@Query() query: unknown, @Res() res: ResponseServer) {
-  try {
-    const params = SearchQuerySchema.parse(query);
-    
-    const results = searchUsers({
-      query: params.q,
-      limit: params.limit,
-      offset: params.offset,
-      sort: params.sort
-    });
+const userWithAddressSchema = v.object({
+  name: v.string(),
+  email: v.string().email(),
+  mainAddress: addressSchema,
+  shippingAddress: addressSchema.optional()
+});
+```
 
-    res.json({ results });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ errors: error.errors });
-    }
-    throw error;
+### Arrays Complexos
+
+```typescript
+const productSchema = v.object({
+  id: v.string().uuid(),
+  name: v.string().min(1),
+  price: v.number().positive(),
+  tags: v.array(v.string()).max(10)
+});
+
+const orderSchema = v.object({
+  customerId: v.string().uuid(),
+  items: v.array(v.object({
+    productId: v.string().uuid(),
+    quantity: v.number().int().positive(),
+    price: v.number().positive()
+  })).min(1),
+  total: v.number().positive(),
+  status: v.enum(['pending', 'paid', 'shipped', 'delivered'])
+});
+```
+
+### Tipos Union (Pagamento)
+
+```typescript
+const paymentSchema = v.union(
+  v.object({
+    type: v.literal('card'),
+    cardNumber: v.string().length(16),
+    cvv: v.string().length(3),
+    expiryDate: v.string().regex(/^\d{2}\/\d{2}$/)
+  }),
+  v.object({
+    type: v.literal('pix'),
+    key: v.string().email()
+  }),
+  v.object({
+    type: v.literal('boleto'),
+    document: v.string().length(11)
+  })
+);
+
+app.post('/payment', (req, res) => {
+  const payment = paymentSchema.parse(req.body) as any;
+  
+  // TypeScript conhece os tipos!
+  if (payment.type === 'card') {
+    // payment.cardNumber está disponível
+  } else if (payment.type === 'pix') {
+    // payment.key está disponível
   }
-}
+  
+  res.json(payment);
+});
 ```
 
-## Validação de Params 🎯
+### Transformações Automáticas
 
 ```typescript
-const IdParamSchema = z.object({
-  id: z.string().uuid()
+const searchSchema = v.object({
+  query: v.string().trim().toLowerCase().min(1),
+  category: v.string().optional(),
+  page: v.number().int().positive().default(1),
+  limit: v.number().int().positive().max(100).default(20)
 });
 
-@Get("/:id")
-getUser(@Param() params: unknown, @Res() res: ResponseServer) {
-  try {
-    const { id } = IdParamSchema.parse(params);
-    
-    const user = findUserById(id);
-    if (!user) {
-      return res.status(404).json({ error: "Usuário não encontrado" });
-    }
-
-    res.json({ user });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: "ID inválido" });
-    }
-    throw error;
-  }
-}
-```
-
-## Schemas Complexos 🔨
-
-### Validação Aninhada
-
-```typescript
-const AddressSchema = z.object({
-  street: z.string().min(1),
-  city: z.string().min(1),
-  state: z.string().length(2),
-  zipCode: z.string().regex(/^\d{5}(-\d{4})?$/)
-});
-
-const UserWithAddressSchema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
-  address: AddressSchema
-});
-
-type UserWithAddress = z.infer<typeof UserWithAddressSchema>;
-```
-
-### Arrays e Objetos
-
-```typescript
-const CreatePostSchema = z.object({
-  title: z.string().min(5).max(100),
-  content: z.string().min(10),
-  tags: z.array(z.string()).min(1).max(5),
-  metadata: z.record(z.string(), z.any()).optional()
+app.get('/search', (req, res) => {
+  const params = searchSchema.parse(req.query);
+  
+  // params.query já está trimmed e em minúsculas!
+  console.log(params.query); // "hello world"
+  console.log(params.page);  // 1 (padrão)
+  
+  res.json(params);
 });
 ```
 
 ### Validação Condicional
 
 ```typescript
-const CreateAccountSchema = z.object({
-  type: z.enum(["personal", "business"]),
-  name: z.string(),
-  // Campos condicionais
-  taxId: z.string().optional(),
-  companyName: z.string().optional()
+const orderSchema = v.object({
+  type: v.enum(['pickup', 'delivery']),
+  items: v.array(v.object({
+    id: v.string(),
+    qty: v.number().int().positive()
+  })),
+  address: v.object({
+    street: v.string(),
+    city: v.string()
+  }).optional()
 }).refine(
   (data) => {
-    if (data.type === "business") {
-      return !!data.taxId && !!data.companyName;
+    // Se delivery, endereço é obrigatório
+    if (data.type === 'delivery') {
+      return !!data.address;
     }
     return true;
   },
-  {
-    message: "Business accounts require taxId and companyName"
-  }
+  'Endereço é obrigatório para entrega'
 );
 ```
 
-## Transformação de Dados 🔄
-
-Zod pode transformar dados durante validação:
+## Inferência de Tipos 🔧
 
 ```typescript
-const UserInputSchema = z.object({
-  email: z.string().email().transform(s => s.toLowerCase()),
-  name: z.string().transform(s => s.trim()),
-  age: z.string().transform(Number).pipe(z.number().int().positive()),
-  createdAt: z.string().transform(s => new Date(s))
+const schema = v.object({
+  name: v.string(),
+  age: v.number(),
+  active: v.boolean().optional()
 });
 
-const input = {
-  email: "USER@EXAMPLE.COM",
-  name: "  John Doe  ",
-  age: "25",
-  createdAt: "2024-01-01"
-};
+// Inferir tipo automaticamente
+type User = Infer<typeof schema>;
+// Resultado: { name: string; age: number; active?: boolean }
 
-const result = UserInputSchema.parse(input);
-// {
-//   email: "user@example.com",
-//   name: "John Doe",
-//   age: 25,
-//   createdAt: Date object
-// }
+// Usar o tipo
+function createUser(data: User) {
+  // TypeScript conhece todos os campos!
+}
 ```
 
-## Mensagens de Erro Personalizadas 💬
+## Formatação de Erros 📝
 
 ```typescript
-const CreateUserSchema = z.object({
-  email: z.string().email({ message: "Formato de email inválido" }),
-  password: z.string()
-    .min(8, { message: "Senha deve ter pelo menos 8 caracteres" })
-    .regex(/[A-Z]/, { message: "Senha deve conter pelo menos uma letra maiúscula" })
-    .regex(/[0-9]/, { message: "Senha deve conter pelo menos um número" }),
-  age: z.number({
-    required_error: "Idade é obrigatória",
-    invalid_type_error: "Idade deve ser um número"
-  }).int().positive().max(120, { message: "Idade deve ser menor que 120" })
+const result = userSchema.safeParse(invalidData);
+
+if (!result.success) {
+  console.log(result.error.format());
+  
+  // Retorna:
+  // {
+  //   "name": ["String deve ter pelo menos 3 caracteres"],
+  //   "email": ["Endereço de email inválido"],
+  //   "age": ["Number deve ser pelo menos 18"]
+  // }
+}
+```
+
+## Middleware de Validação 🛠️
+
+```typescript
+import { BaseValidator, ValidationError } from 'azurajs/validators';
+
+function validate<T>(schema: BaseValidator<T>) {
+  return (req: any, res: any, next: any) => {
+    const result = schema.safeParse(req.body);
+    
+    if (!result.success) {
+      return res.status(400).json({
+        error: 'Falha na validação',
+        issues: result.error.format()
+      });
+    }
+    
+    (req as any).validated = result.data;
+    next();
+  };
+}
+
+// Uso
+app.post('/users', validate(userSchema), (req, res) => {
+  const user = (req as any).validated; // Já validado!
+  res.json(user);
 });
 ```
 
-## Melhores Práticas ✨
+## Padrões Avançados 🎯
 
-<Callout type="tip">
-  **Valide na entrada**: Sempre valide dados antes de processá-los
-</Callout>
+### Schemas Reutilizáveis
 
-<Callout type="tip">
-  **Use Zod para schemas complexos**: Zod fornece inferência de tipos e validação poderosa
-</Callout>
+```typescript
+// Schemas base
+const idSchema = v.string().uuid();
+const timestampsSchema = v.object({
+  createdAt: v.date(),
+  updatedAt: v.date()
+});
 
-<Callout type="tip">
-  **Crie DTOs reutilizáveis**: Defina schemas uma vez, use em vários lugares
-</Callout>
+// Reutilizar
+const userSchema = v.object({
+  id: idSchema,
+  name: v.string(),
+  ...timestampsSchema
+});
+```
 
-<Callout type="warn">
-  **Não confie em dados do cliente**: Sempre valide, mesmo se o frontend validou
-</Callout>
+### Validadores Customizados
 
-## Próximos Passos 📖
+```typescript
+function isValidCPF(cpf: string): boolean {
+  // Lógica de validação
+  return true;
+}
 
-<Cards>
-  <Card title="Decorators" href="decorators" description="Use @Body, @Query, @Param" />
-  <Card title="Error Handling" href="error-handling" description="Trate erros de validação" />
-  <Card title="TypeScript" href="typescript-support" description="Type-safety total" />
-</Cards>
+const cpfSchema = v.string()
+  .length(11)
+  .refine(isValidCPF, 'CPF inválido');
+```
+
+## Comparação com Zod 📊
+
+| Recurso | Azura | Zod |
+|---------|-------|-----|
+| Sintaxe | `v.string().email()` | `z.string().email()` |
+| Transformações | ✅ Integrado | ❌ Precisa `.transform()` |
+| Erros Formatados | ✅ `.format()` | ❌ Manual |
+| Performance | ⚡ Mais rápido | 🐢 Mais lento |
+| Tamanho do Bundle | 📦 Menor | 📦 Maior |
+| TypeScript | ✅ Perfeito | ✅ Bom |
+
+## Referência da API 📖
+
+### Factory Principal
+
+```typescript
+import { v } from 'azurajs/validators';
+
+v.string()     // Validador de string
+v.number()     // Validador de número
+v.boolean()    // Validador de booleano
+v.date()       // Validador de data
+v.array(type)  // Validador de array
+v.object({})   // Validador de objeto
+v.enum([])     // Validador de enum
+v.literal(val) // Validador de literal
+v.union(...)   // Validador de união
+```
+
+## Melhores Práticas 💎
+
+1. **Use inferência TypeScript**: `type User = Infer<typeof userSchema>`
+2. **Safe parse para entrada do usuário**: Use `.safeParse()` ao invés de `.parse()`
+3. **Reutilize schemas**: Crie componentes de validação reutilizáveis
+4. **Mensagens de erro customizadas**: Forneça feedback claro de validação
+5. **Transforme dados**: Use `.trim()`, `.toLowerCase()` para transformações automáticas
+
+## Migração do Zod 🔄
+
+```typescript
+// Zod
+import { z } from 'zod';
+const schema = z.object({
+  name: z.string().min(3)
+});
+
+// Azura (só mude z para v!)
+import { v } from 'azurajs/validators';
+const schema = v.object({
+  name: v.string().min(3)
+});
+```
+
+Quase a mesma API! 🎉

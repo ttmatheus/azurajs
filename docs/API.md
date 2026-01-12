@@ -5,6 +5,8 @@ Complete API documentation for AzuraJS.
 ## Table of Contents
 
 - [Core Classes](#core-classes)
+- [IP Resolution](#ip-resolution)
+- [Type Extensions](#type-extensions)
 - [Decorators](#decorators)
 - [Types](#types)
 - [Request Object](#request-object)
@@ -87,6 +89,130 @@ Returns the current configuration.
 const config = app.getConfig();
 console.log(config.server.port);
 ```
+
+---
+
+## IP Resolution
+
+Azura provides powerful IP resolution similar to Express.js, with support for proxies and load balancers.
+
+### Configuration
+
+Configure trust proxy in `azura.config.ts`:
+
+```typescript
+export default {
+  server: {
+    trustProxy: true,  // or number, string, string[]
+    ipHeader: 'x-forwarded-for'  // optional
+  }
+};
+```
+
+### Trust Proxy Options
+
+```typescript
+// Trust all proxies
+trustProxy: true
+
+// Trust N hops
+trustProxy: 1
+
+// Trust specific IP
+trustProxy: '10.0.0.1'
+
+// Trust CIDR range
+trustProxy: '10.0.0.0/8'
+
+// Trust multiple
+trustProxy: ['10.0.0.0/8', '172.16.0.0/12']
+```
+
+### Usage in Routes
+
+```typescript
+app.get('/ip', (req, res) => {
+  res.json({
+    ip: req.ip,    // Primary client IP
+    ips: req.ips   // All IPs from proxy chain
+  });
+});
+```
+
+### Utility Function
+
+```typescript
+import { resolveIp, COMMON_PROXY_RANGES } from 'azura';
+
+const { ip, ips } = resolveIp(req, {
+  trustProxy: COMMON_PROXY_RANGES.CLOUDFLARE,
+  ipHeader: 'cf-connecting-ip'
+});
+```
+
+**See:** [IP Resolution Guide](./IP_RESOLUTION.md) for complete documentation.
+
+---
+
+## Type Extensions
+
+Azura supports TypeScript declaration merging to extend Request, Response, and AzuraClient types.
+
+### Extending Request
+
+```typescript
+// types/azura.d.ts
+declare module 'azura' {
+  interface RequestServer {
+    user?: { id: string; email: string };
+    isAuthenticated(): boolean;
+  }
+}
+
+// Implementation
+app.use((req, res, next) => {
+  req.isAuthenticated = function() {
+    return !!this.user;
+  };
+  next();
+});
+```
+
+### Extending Response
+
+```typescript
+declare module 'azura' {
+  interface ResponseServer {
+    sendSuccess(data: any, message?: string): this;
+    sendError(message: string, code?: number): this;
+  }
+}
+
+app.use((req, res, next) => {
+  res.sendSuccess = function(data, message) {
+    return this.json({ success: true, message, data });
+  };
+  next();
+});
+```
+
+### Extending AzuraClient
+
+```typescript
+declare module 'azura' {
+  interface AzuraClient {
+    health(path?: string): void;
+  }
+}
+
+AzuraClient.prototype.health = function(path = '/health') {
+  this.get(path, (req, res) => {
+    res.json({ status: 'ok', uptime: process.uptime() });
+  });
+};
+```
+
+**See:** [Type Extensions Guide](./TYPE_EXTENSIONS.md) for complete documentation.
 
 ---
 

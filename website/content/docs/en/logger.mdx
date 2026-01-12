@@ -1,0 +1,403 @@
+---
+title: Logger
+description: Advanced logging system with colors, icons, and timestamps
+icon: Terminal
+---
+
+# Logger 📝
+
+AzuraJS includes a powerful logging system with support for colors, icons, timestamps, and full customization.
+
+## Quick Start 🚀
+
+```typescript
+import { log } from 'azurajs';
+
+log.info('Server started on port 3000');
+log.success('Task completed successfully');
+log.warn('Memory usage is high');
+log.error('Connection failed');
+```
+
+## Log Levels 📊
+
+### Available Levels
+
+```typescript
+log.debug('Debugging information');    // 🐛 Gray
+log.info('Informational message');     // ℹ️  Cyan
+log.success('Success message');        // ✅ Bright Green
+log.warn('Warning message');           // ⚠️  Yellow
+log.error('Error message');            // ❌ Red
+log.fatal('Fatal error');              // 💀 Bright Red
+log.trace('Trace message');            // 🔍 Magenta
+log.log('General log');                // 📝 White
+```
+
+## Configuration ⚙️
+
+### Global Configuration
+
+Configure logger globally for all subsequent calls:
+
+```typescript
+import { configureLogger } from 'azurajs';
+
+configureLogger({
+  showTimestamp: true,
+  timestampFormat: 'datetime',
+  showIcon: true,
+  prefix: 'MyApp',
+  uppercase: true,
+  bold: true
+});
+
+// Now all logs use this configuration
+log.info('Server started');  // [MyApp:INFO] ℹ️ 1/11/2026, 2:30:45 PM Server started
+```
+
+### Per-Call Configuration
+
+Override global configuration for specific calls:
+
+```typescript
+log.info('Custom message', {
+  showTimestamp: false,
+  bold: true,
+  colors: {
+    info: '#00ff00'  // Custom green color
+  }
+});
+```
+
+## Configuration Options 🎨
+
+### Complete Configuration
+
+```typescript
+interface LoggerConfig {
+  // Custom color mapping (hex, rgb, or predefined)
+  colors?: Record<string, string>;
+  
+  // Custom icon mapping
+  icons?: Record<string, string>;
+  
+  // Show timestamps
+  showTimestamp?: boolean;
+  
+  // Show icons
+  showIcon?: boolean;
+  
+  // Timestamp format: 'time', 'datetime', or 'iso'
+  timestampFormat?: 'time' | 'datetime' | 'iso';
+  
+  // Custom prefix (default: 'Azura')
+  prefix?: string;
+  
+  // Display level in uppercase
+  uppercase?: boolean;
+  
+  // Apply bold styling
+  bold?: boolean;
+  
+  // Apply dim/faded styling
+  dim?: boolean;
+  
+  // Background color
+  backgroundColor?: string;
+}
+```
+
+## Custom Colors 🎨
+
+### Hex Colors
+
+```typescript
+log.info('Message', {
+  colors: {
+    info: '#ff5733'  // Custom orange
+  }
+});
+```
+
+### RGB Colors
+
+```typescript
+log.info('Message', {
+  colors: {
+    info: 'rgb(255, 87, 51)'
+  }
+});
+```
+
+### Predefined Colors
+
+```typescript
+log.info('Message', {
+  colors: {
+    info: 'brightBlue'  // Use predefined color
+  }
+});
+```
+
+Available colors:
+- `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, `gray`
+- `brightRed`, `brightGreen`, `brightYellow`, `brightBlue`, `brightMagenta`, `brightCyan`, `brightWhite`
+
+## Custom Icons 🎭
+
+```typescript
+log.info('Message', {
+  icons: {
+    info: '🚀'  // Custom rocket icon
+  }
+});
+
+// Disable icons
+log.info('Message', {
+  showIcon: false
+});
+```
+
+## Timestamps ⏰
+
+### Time Only (HH:MM:SS)
+
+```typescript
+configureLogger({
+  showTimestamp: true,
+  timestampFormat: 'time'
+});
+
+log.info('Message');  // 14:23:45 ℹ️ [Azura:INFO] Message
+```
+
+### Full DateTime
+
+```typescript
+configureLogger({
+  showTimestamp: true,
+  timestampFormat: 'datetime'
+});
+
+log.info('Message');  // 1/11/2026, 2:23:45 PM ℹ️ [Azura:INFO] Message
+```
+
+### ISO 8601
+
+```typescript
+configureLogger({
+  showTimestamp: true,
+  timestampFormat: 'iso'
+});
+
+log.info('Message');  // 2026-01-11T14:23:45.123Z ℹ️ [Azura:INFO] Message
+```
+
+## Styling Options 💅
+
+### Bold Text
+
+```typescript
+log.info('Important message', { bold: true });
+```
+
+### Dim Text
+
+```typescript
+log.trace('Less important', { dim: true });
+```
+
+### Background Color
+
+```typescript
+log.error('Critical error', {
+  backgroundColor: 'bgRed'
+});
+```
+
+### Combined Styling
+
+```typescript
+log.success('Done!', {
+  bold: true,
+  colors: { success: '#00ff00' },
+  backgroundColor: 'bgBlack'
+});
+```
+
+## Advanced Usage 🎯
+
+### Custom Prefix
+
+```typescript
+configureLogger({
+  prefix: 'MyAPI'
+});
+
+log.info('Request received');  // [MyAPI:INFO] ℹ️ Request received
+```
+
+### Different Prefixes Per Service
+
+```typescript
+const dbLogger = (msg: string) => log.info(msg, { prefix: 'Database' });
+const apiLogger = (msg: string) => log.info(msg, { prefix: 'API' });
+
+dbLogger('Connection established');  // [Database:INFO] ℹ️ Connection established
+apiLogger('Server started');         // [API:INFO] ℹ️ Server started
+```
+
+### Using Raw Logger Function
+
+```typescript
+import { logger } from 'azurajs';
+
+logger('info', 'Custom log', {
+  showTimestamp: true,
+  colors: { info: '#00ff00' }
+});
+```
+
+## Color Utilities 🖌️
+
+Access color functions directly:
+
+```typescript
+import { colors } from 'azurajs';
+
+// Convert hex to ANSI
+const greenAnsi = colors.hex('#00ff00');
+console.log(`${greenAnsi}Green text${colors.reset}`);
+
+// Convert RGB to ANSI
+const blueAnsi = colors.rgb(0, 0, 255);
+console.log(`${blueAnsi}Blue text${colors.reset}`);
+
+// Use predefined colors
+console.log(`${colors.ansi.brightRed}Red text${colors.reset}`);
+
+// Background colors
+console.log(`${colors.bg.bgYellow}Yellow background${colors.reset}`);
+
+// Styling
+console.log(`${colors.bold}Bold text${colors.reset}`);
+console.log(`${colors.dim}Dim text${colors.reset}`);
+```
+
+## Practical Examples 💡
+
+### HTTP Request Logging
+
+```typescript
+app.use((req, res, next) => {
+  log.info(`${req.method} ${req.path}`, {
+    showTimestamp: true,
+    timestampFormat: 'time'
+  });
+  next();
+});
+```
+
+### Error Tracking
+
+```typescript
+try {
+  await riskyOperation();
+  log.success('Operation completed');
+} catch (error) {
+  log.error(`Operation failed: ${error.message}`, {
+    showTimestamp: true,
+    bold: true
+  });
+}
+```
+
+### Development vs Production
+
+```typescript
+const isDev = process.env.NODE_ENV === 'development';
+
+configureLogger({
+  showTimestamp: !isDev,
+  showIcon: isDev,
+  colors: isDev ? undefined : {
+    info: 'white',
+    error: 'red'
+  }
+});
+```
+
+### Structured Logging
+
+```typescript
+function logRequest(req: any) {
+  log.info('Request', {
+    prefix: 'API',
+    showTimestamp: true
+  });
+  log.debug(JSON.stringify({
+    method: req.method,
+    path: req.path,
+    ip: req.ip
+  }, null, 2));
+}
+```
+
+## Best Practices 💎
+
+1. **Configure globally once** at application start
+2. **Use appropriate log levels** - don't use `error` for warnings
+3. **Include timestamps in production** for debugging
+4. **Disable colors in CI/CD** environments
+5. **Use prefixes** to identify log sources
+6. **Keep messages concise** but informative
+7. **Disable debug logs** in production
+
+## Migration Guide 🔄
+
+### From console.log
+
+```typescript
+// Before
+console.log('Server started');
+console.error('Error occurred');
+
+// After
+log.info('Server started');
+log.error('Error occurred');
+```
+
+### From Winston/Pino
+
+```typescript
+// Before (Winston)
+logger.info('Message', { timestamp: true });
+
+// After (Azura)
+log.info('Message', { showTimestamp: true });
+```
+
+## API Reference 📖
+
+### Main Functions
+
+- `log.debug(msg, options?)` - Debug message
+- `log.info(msg, options?)` - Informational message
+- `log.success(msg, options?)` - Success message
+- `log.warn(msg, options?)` - Warning message
+- `log.error(msg, options?)` - Error message
+- `log.fatal(msg, options?)` - Fatal error message
+- `log.trace(msg, options?)` - Trace message
+- `log.log(msg, options?)` - General log
+
+### Configuration
+
+- `configureLogger(config)` - Set global configuration
+- `logger(level, msg, options?)` - Raw logger function
+- `colors.*` - Color utilities
+
+## Examples 📚
+
+Check out the complete examples:
+- See examples in the repository for more advanced usage patterns

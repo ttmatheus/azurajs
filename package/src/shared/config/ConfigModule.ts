@@ -16,6 +16,20 @@ export type ConfigTypes = {
     cluster?: boolean;
     ipHost?: boolean;
     https?: boolean;
+    /**
+     * Configure trust proxy behavior for IP resolution
+     * - true: trust all proxies
+     * - false: don't trust any proxies (default)
+     * - number: trust the nth hop from the front-facing proxy
+     * - string: trust specific IP address or CIDR range
+     * - string[]: trust multiple IPs or CIDR ranges
+     */
+    trustProxy?: boolean | number | string | string[];
+    /**
+     * Custom header name to read IP from
+     * @default 'x-forwarded-for'
+     */
+    ipHeader?: string;
   };
   plugins?: {
     rateLimit?: {

@@ -20,4 +20,5 @@ export interface RouteDefinition {
   path: string;
   propertyKey: string;
   params: ParamDefinition[];
+  description?: string;
 }

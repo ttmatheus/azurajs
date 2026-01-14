@@ -1,4 +1,6 @@
 import { defineConfig } from 'tsup';
+import { copyFileSync, mkdirSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
 
 export default defineConfig({
   entry: {
@@ -51,5 +53,20 @@ export default defineConfig({
   // Suporte experimental a decorators
   esbuildOptions(options) {
     options.tsconfig = './tsconfig.build.json';
+  },
+
+  // Hook para copiar arquivos estáticos após o build
+  onSuccess: async () => {
+    // Copiar swagger-ui-modern.html para dist
+    const srcHtml = join('src', 'shared', 'swagger', 'swagger-ui-modern.html');
+    const distDir = join('dist', 'shared', 'swagger');
+    const distHtml = join(distDir, 'swagger-ui-modern.html');
+    
+    if (!existsSync(distDir)) {
+      mkdirSync(distDir, { recursive: true });
+    }
+    
+    copyFileSync(srcHtml, distHtml);
+    console.log('✓ Copied swagger-ui-modern.html to dist');
   },
 });

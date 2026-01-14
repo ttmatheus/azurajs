@@ -7,6 +7,7 @@ const config: ConfigTypes = {
     cluster: false,
     ipHost: false,
     https: false,
+    trustProxy: true
   },
   plugins: {
     rateLimit: {

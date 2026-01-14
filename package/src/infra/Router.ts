@@ -20,33 +20,67 @@ export class Router {
     const segments = path.split("/").filter(Boolean);
     let node = this.root;
 
+    if (this.debug) {
+      console.log(`[Router:DEBUG] Adding ${method} ${path}`);
+      console.log(`[Router:DEBUG] Segments:`, segments);
+    }
+
     for (const seg of segments) {
       let child: Node;
 
       if (seg.startsWith(":")) {
-        child = new Node();
-        child.isParam = true;
-        child.paramName = seg.slice(1);
+        const paramKey = ":";
+        child = node.children.get(paramKey);
+        
+        if (!child) {
+          child = new Node();
+          child.isParam = true;
+          child.paramName = seg.slice(1);
+          node.children.set(paramKey, child);
+          
+          if (this.debug) {
+            console.log(`[Router:DEBUG] Created param node: :${seg.slice(1)}`);
+          }
+        } else {
+          // Update paramName if it's different (shouldn't happen in normal usage)
+          if (child.paramName !== seg.slice(1)) {
+            if (this.debug) {
+              console.warn(`[Router:DEBUG] Warning: Param name mismatch at "${seg}". Previous: ":${child.paramName}", New: ":${seg.slice(1)}"`);
+            }
+          }
+        }
       } else {
-        child = node.children.get(seg) ?? new Node();
+        child = node.children.get(seg);
+        
+        if (!child) {
+          child = new Node();
+          node.children.set(seg, child);
+          
+          if (this.debug) {
+            console.log(`[Router:DEBUG] Created literal node: "${seg}"`);
+          }
+        }
       }
 
-      node.children.set(seg.startsWith(":") ? ":" : seg, child);
       node = child;
+    }
+
+    if (this.debug) {
+      console.log(`[Router:DEBUG] Setting handler for ${method} at final node`);
     }
 
     node.handlers.set(method.toUpperCase(), handlers);
   }
 
   find(method: string, path: string): MatchResult {
-    const cleanPath = path.split("?")[0];
-    const segments = cleanPath?.split("/").filter(Boolean) ?? [];
+    const cleanPath = path.split("?")[0] || "/";
+    const segments = cleanPath === "/" ? [] : cleanPath.split("/").filter(Boolean);
     let node = this.root;
     const params: Record<string, string> = {};
 
-    if (this.debug && segments?.length === 0 && node.handlers.size === 0) {
-      console.error("[Router:DEBUG] Root node has no handlers");
-      console.error("[Router:DEBUG] Available methods at root:", Array.from(node.handlers.keys()));
+    if (this.debug) {
+      console.log(`[Router:DEBUG] Finding ${method} ${cleanPath}`);
+      console.log(`[Router:DEBUG] Segments:`, segments);
     }
 
     for (let i = 0; i < segments.length; i++) {
@@ -57,15 +91,22 @@ export class Router {
 
       if (child) {
         node = child;
+        if (this.debug) {
+          console.log(`[Router:DEBUG] Matched literal segment: "${seg}"`);
+        }
       } else {
         child = node.children.get(":");
         if (child) {
           node = child;
           if (node.paramName) {
             params[node.paramName] = seg;
+            if (this.debug) {
+              console.log(`[Router:DEBUG] Matched param segment: ":${node.paramName}" = "${seg}"`);
+            }
+          } else if (this.debug) {
+            console.warn(`[Router:DEBUG] Warning: Param node found but paramName is undefined!`);
           }
         } else {
-          // Debug melhorado - só mostra se debug estiver ativo
           if (this.debug) {
             console.error(`[Router:DEBUG] Route not found for ${method} ${cleanPath}`);
             console.error(`[Router:DEBUG] Failed at segment: "${seg}"`);
@@ -90,6 +131,12 @@ export class Router {
       }
       throw new HttpError(404, "Route not found");
     }
+    
+    if (this.debug) {
+      console.log(`[Router:DEBUG] Found handlers for ${method} ${cleanPath}`);
+      console.log(`[Router:DEBUG] Extracted params:`, params);
+    }
+    
     return { handlers, params };
   }
 

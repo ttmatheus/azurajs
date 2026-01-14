@@ -190,3 +190,137 @@ export function getSwaggerMetadata(target: Function) {
     tags: API_TAGS.get(target),
   };
 }
+
+/**
+ * Unified Swagger decorator - Simple and easy to use!
+ * Document everything in one place with a clean object structure.
+ * 
+ * @example
+ * ```typescript
+ * @Swagger({
+ *   summary: "Get user by ID",
+ *   description: "Retrieve a single user",
+ *   tags: ["Users"],
+ *   parameters: [
+ *     {
+ *       name: "id",
+ *       in: "path",
+ *       description: "User ID",
+ *       required: true,
+ *       schema: { type: "string" },
+ *       example: "123"
+ *     }
+ *   ],
+ *   responses: {
+ *     200: {
+ *       description: "User found",
+ *       example: { id: "123", name: "John" }
+ *     },
+ *     404: {
+ *       description: "User not found",
+ *       example: { error: "Not found" }
+ *     }
+ *   }
+ * })
+ * getUser(req, res) { }
+ * ```
+ */
+export function Swagger(config: {
+  summary?: string;
+  description?: string;
+  tags?: string[];
+  operationId?: string;
+  deprecated?: boolean;
+  security?: SecurityRequirement[];
+  parameters?: Array<{
+    name: string;
+    in: "query" | "header" | "path" | "cookie";
+    description?: string;
+    required?: boolean;
+    schema?: Schema;
+    example?: any;
+  }>;
+  requestBody?: {
+    description?: string;
+    required?: boolean;
+    content?: any;
+    example?: any;
+  };
+  responses?: Record<number, {
+    description: string;
+    example?: any;
+    schema?: Schema;
+    headers?: Record<string, Header>;
+  }>;
+}): MethodDecorator {
+  return (target, propertyKey) => {
+    const ctor = typeof target === "function" ? (target as Function) : (target as any).constructor;
+    const key = String(propertyKey);
+
+    // Set basic metadata
+    if (config.summary || config.description || config.operationId || config.deprecated !== undefined || config.security) {
+      let metaMap = API_METADATA.get(ctor);
+      if (!metaMap) {
+        metaMap = new Map<string, ApiDocMetadata>();
+        API_METADATA.set(ctor, metaMap);
+      }
+      metaMap.set(key, {
+        summary: config.summary,
+        description: config.description,
+        operationId: config.operationId,
+        deprecated: config.deprecated,
+        security: config.security,
+        tags: config.tags,
+      });
+    }
+
+    // Set parameters
+    if (config.parameters && config.parameters.length > 0) {
+      let paramMap = API_PARAMETERS.get(ctor);
+      if (!paramMap) {
+        paramMap = new Map<string, ApiParameterMetadata[]>();
+        API_PARAMETERS.set(ctor, paramMap);
+      }
+      paramMap.set(key, config.parameters.map(p => ({
+        name: p.name,
+        in: p.in,
+        description: p.description,
+        required: p.required,
+        schema: p.schema,
+        example: p.example,
+      })));
+    }
+
+    // Set request body
+    if (config.requestBody) {
+      let bodyMap = API_BODY.get(ctor);
+      if (!bodyMap) {
+        bodyMap = new Map<string, ApiBodyMetadata>();
+        API_BODY.set(ctor, bodyMap);
+      }
+      bodyMap.set(key, {
+        description: config.requestBody.description,
+        required: config.requestBody.required,
+        type: config.requestBody.content,
+        examples: config.requestBody.example ? { default: config.requestBody.example } : undefined,
+      });
+    }
+
+    // Set responses
+    if (config.responses) {
+      let respMap = API_RESPONSES.get(ctor);
+      if (!respMap) {
+        respMap = new Map<string, ApiResponseMetadata[]>();
+        API_RESPONSES.set(ctor, respMap);
+      }
+      const responses = Object.entries(config.responses).map(([code, resp]) => ({
+        statusCode: Number(code),
+        description: resp.description,
+        type: resp.schema,
+        examples: resp.example ? { default: resp.example } : undefined,
+        headers: resp.headers,
+      }));
+      respMap.set(key, responses);
+    }
+  };
+}

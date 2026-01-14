@@ -6,6 +6,7 @@ import type {
   Parameter,
   Response,
   Schema,
+  Reference,
   MediaType,
   SwaggerConfig,
   RequestBody,
@@ -92,6 +93,235 @@ export class SwaggerGenerator {
 
       (this.document.paths[fullPath] as any)[method] = operation;
     }
+  }
+
+  /**
+   * Add a single route manually without decorators (for JavaScript/plain TypeScript users)
+   * 
+   * @example
+   * ```javascript
+   * const swagger = setupSwagger(app, { title: "My API" });
+   * 
+   * app.get('/users/:id', (req, res) => {
+   *   res.json({ id: req.params.id, name: 'John' });
+   * });
+   * 
+   * swagger.addRoute({
+   *   method: 'GET',
+   *   path: '/users/:id',
+   *   summary: 'Get user by ID',
+   *   description: 'Returns a single user',
+   *   tags: ['Users'],
+   *   parameters: [{
+   *     name: 'id',
+   *     in: 'path',
+   *     required: true,
+   *     schema: { type: 'string' },
+   *     description: 'User ID'
+   *   }],
+   *   responses: {
+   *     200: {
+   *       description: 'Successful response',
+   *       content: {
+   *         'application/json': {
+   *           schema: {
+   *             type: 'object',
+   *             properties: {
+   *               id: { type: 'string' },
+   *               name: { type: 'string' }
+   *             }
+   *           }
+   *         }
+   *       }
+   *     }
+   *   }
+   * });
+   * ```
+   */
+  public addRoute(config: {
+    method: string;
+    path: string;
+    summary?: string;
+    description?: string;
+    tags?: string[];
+    operationId?: string;
+    deprecated?: boolean;
+    security?: Array<Record<string, string[]>>;
+    parameters?: Parameter[];
+    requestBody?: RequestBody;
+    responses?: Record<string, Response>;
+  }): void {
+    const fullPath = this.normalizePath(config.path);
+    const method = config.method.toLowerCase() as keyof PathItem;
+
+    if (!this.document.paths[fullPath]) {
+      this.document.paths[fullPath] = {};
+    }
+
+    const pathParams = this.extractPathParams(config.path);
+    const allParameters: Parameter[] = [
+      ...(config.parameters || []),
+      ...pathParams
+        .filter(param => !config.parameters?.some(p => p.name === param))
+        .map(param => ({
+          name: param,
+          in: 'path' as const,
+          required: true,
+          schema: { type: 'string' as const },
+          description: `Path parameter: ${param}`,
+        })),
+    ];
+
+    const operation: Operation = {
+      summary: config.summary,
+      description: config.description,
+      tags: config.tags,
+      operationId: config.operationId ?? `${config.method}_${fullPath.replace(/[^a-zA-Z0-9]/g, "_")}`,
+      deprecated: config.deprecated,
+      security: config.security,
+      parameters: allParameters.length > 0 ? allParameters : undefined,
+      responses: config.responses || {
+        200: {
+          description: 'Successful response',
+        },
+      },
+    };
+
+    if (config.requestBody) {
+      operation.requestBody = config.requestBody;
+    }
+
+    (this.document.paths[fullPath] as any)[method] = operation;
+  }
+
+  /**
+   * SIMPLE API - Add route with easy object structure
+   * This is the easiest way to document routes without decorators!
+   * 
+   * @example
+   * ```javascript
+   * swagger.addDoc({
+   *   method: 'GET',
+   *   path: '/users/:id',
+   *   summary: 'Get user by ID',
+   *   tags: ['Users'],
+   *   parameters: [
+   *     { name: 'id', in: 'path', required: true, schema: { type: 'string' }, example: '123' }
+   *   ],
+   *   responses: {
+   *     200: { description: 'User found', example: { id: '123', name: 'John' } },
+   *     404: { description: 'Not found', example: { error: 'User not found' } }
+   *   }
+   * });
+   * ```
+   */
+  public addDoc(config: {
+    method: string;
+    path: string;
+    summary?: string;
+    description?: string;
+    tags?: string[];
+    operationId?: string;
+    deprecated?: boolean;
+    security?: Array<Record<string, string[]>>;
+    parameters?: Array<{
+      name: string;
+      in: "query" | "header" | "path" | "cookie";
+      description?: string;
+      required?: boolean;
+      schema?: Schema | Reference;
+      example?: any;
+    }>;
+    requestBody?: {
+      description?: string;
+      required?: boolean;
+      schema?: Schema | Reference;
+      example?: any;
+    };
+    responses?: Record<number, {
+      description: string;
+      example?: any;
+      schema?: Schema | Reference;
+    }>;
+  }): void {
+    const fullPath = this.normalizePath(config.path);
+    const method = config.method.toLowerCase() as keyof PathItem;
+
+    if (!this.document.paths[fullPath]) {
+      this.document.paths[fullPath] = {};
+    }
+
+    // Auto-detect path parameters and merge with provided parameters
+    const pathParams = this.extractPathParams(config.path);
+    const providedParams = config.parameters || [];
+    
+    const allParameters: Parameter[] = [
+      ...providedParams.map(p => ({
+        name: p.name,
+        in: p.in,
+        description: p.description,
+        required: p.required ?? (p.in === 'path'),
+        schema: p.schema,
+        example: p.example,
+      })),
+      // Add missing path params
+      ...pathParams
+        .filter(param => !providedParams.some(p => p.name === param))
+        .map(param => ({
+          name: param,
+          in: 'path' as const,
+          required: true,
+          schema: { type: 'string' as const },
+          description: `Path parameter: ${param}`,
+        })),
+    ];
+
+    // Build responses
+    const responses: Record<string, Response> = {};
+    if (config.responses) {
+      for (const [code, resp] of Object.entries(config.responses)) {
+        responses[code] = {
+          description: resp.description,
+          content: resp.schema || resp.example ? {
+            'application/json': {
+              schema: resp.schema,
+              ...(resp.example && { examples: { default: { value: resp.example } } }),
+            },
+          } : undefined,
+        };
+      }
+    } else {
+      responses['200'] = { description: 'Successful response' };
+    }
+
+    const operation: Operation = {
+      summary: config.summary,
+      description: config.description,
+      tags: config.tags,
+      operationId: config.operationId ?? `${config.method}_${fullPath.replace(/[^a-zA-Z0-9]/g, "_")}`,
+      deprecated: config.deprecated,
+      security: config.security,
+      parameters: allParameters.length > 0 ? allParameters : undefined,
+      responses,
+    };
+
+    // Add request body if provided
+    if (config.requestBody) {
+      operation.requestBody = {
+        description: config.requestBody.description,
+        required: config.requestBody.required ?? false,
+        content: {
+          'application/json': {
+            schema: config.requestBody.schema,
+            ...(config.requestBody.example && { 
+              examples: { default: { value: config.requestBody.example } } 
+            }),
+          },
+        },
+      };
+    }
+
+    (this.document.paths[fullPath] as any)[method] = operation;
   }
 
   /**
@@ -337,5 +567,72 @@ export class SwaggerGenerator {
    */
   public toJSON(): string {
     return JSON.stringify(this.document, null, 2);
+  }
+
+  /**
+   * Helper to create a simple response schema
+   */
+  public static createResponse(description: string, schema?: Schema | Reference, example?: any): Response {
+    return {
+      description,
+      content: schema ? {
+        'application/json': {
+          schema,
+          ...(example && { examples: { default: { value: example } } }),
+        },
+      } : undefined,
+    };
+  }
+
+  /**
+   * Helper to create a request body
+   */
+  public static createRequestBody(schema: Schema | Reference, description?: string, required = true, example?: any): RequestBody {
+    return {
+      description,
+      required,
+      content: {
+        'application/json': {
+          schema,
+          ...(example && { examples: { default: { value: example } } }),
+        },
+      },
+    };
+  }
+
+  /**
+   * Helper to create a parameter
+   */
+  public static createParameter(
+    name: string,
+    location: 'query' | 'path' | 'header' | 'cookie',
+    schema: Schema | Reference,
+    options?: {
+      description?: string;
+      required?: boolean;
+      deprecated?: boolean;
+      example?: any;
+    }
+  ): Parameter {
+    return {
+      name,
+      in: location,
+      description: options?.description,
+      required: options?.required ?? (location === 'path'),
+      deprecated: options?.deprecated,
+      schema,
+      example: options?.example,
+    };
+  }
+
+  /**
+   * Helper to create a simple object schema
+   */
+  public static createSchema(properties: Record<string, Schema | Reference>, required?: string[]): Schema {
+    return {
+      type: 'object',
+      properties,
+      required,
+    };
   }
 }

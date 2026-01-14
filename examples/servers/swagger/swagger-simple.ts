@@ -1,12 +1,12 @@
-import { Controller, Get, Post, Req, Res } from "../../package/src/decorators/Route";
+import { Controller, Get, Post, Req, Res } from "../../../package/src/decorators/Route";
 import {
   ApiDoc,
   ApiResponse,
   ApiTags,
   setupSwaggerWithControllers,
-} from "../../package/src/swagger";
-import { AzuraClient } from "../../package/src";
-import type { RequestServer, ResponseServer } from "../../package/src/types";
+} from "../../../package/src/swagger";
+import { AzuraClient } from "../../../package/src";
+import type { RequestServer, ResponseServer } from "../../../package/src/types";
 
 // Simple controller with Swagger documentation
 @Controller("/api")

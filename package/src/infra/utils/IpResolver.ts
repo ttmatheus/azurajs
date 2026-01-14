@@ -102,7 +102,13 @@ export function resolveIp(
   const { trustProxy = false, ipHeader = "x-forwarded-for" } = config;
 
   // Get socket IP as fallback
-  const socketIp = req.socket.remoteAddress || "";
+  // Clean up IPv6 localhost and IPv4-mapped addresses
+  let socketIp = req.socket?.remoteAddress || "";
+  if (socketIp === "::1" || socketIp === "::ffff:127.0.0.1") {
+    socketIp = "127.0.0.1";
+  } else if (socketIp.startsWith("::ffff:")) {
+    socketIp = socketIp.substring(7);
+  }
 
   // If not trusting proxy, return socket IP only
   if (trustProxy === false) {

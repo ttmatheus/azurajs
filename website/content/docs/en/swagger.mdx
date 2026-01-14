@@ -44,7 +44,109 @@ app.listen();
 
 ## Documentation Decorators
 
-### @ApiDoc()
+### @Swagger() - New Simplified API ⭐
+
+The `@Swagger` decorator unifies **all** documentation in a single place, making it much easier and more intuitive to document your APIs:
+
+```typescript
+import { Controller, Get, Post } from "azurajs/decorators";
+import { Swagger } from "azurajs/swagger";
+
+@Controller("/users")
+class UserController {
+  @Get("/:id")
+  @Swagger({
+    summary: "Get user by ID",
+    description: "Retrieve detailed information about a specific user",
+    tags: ["Users"],
+    parameters: [
+      {
+        name: "id",
+        in: "path",
+        description: "User ID",
+        required: true,
+        schema: { type: "string" },
+        example: "123"
+      }
+    ],
+    responses: {
+      200: {
+        description: "User found",
+        example: { 
+          id: "123", 
+          name: "John Doe",
+          email: "john@example.com"
+        }
+      },
+      404: {
+        description: "User not found",
+        example: { error: "User not found" }
+      }
+    }
+  })
+  async getUser(@Req() req, @Res() res) {
+    res.json({ id: req.params.id, name: "John Doe" });
+  }
+
+  @Post("/")
+  @Swagger({
+    summary: "Create new user",
+    tags: ["Users"],
+    requestBody: {
+      description: "User data",
+      required: true,
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              email: { type: "string", format: "email" }
+            },
+            required: ["name", "email"]
+          },
+          example: {
+            name: "Jane Doe",
+            email: "jane@example.com"
+          }
+        }
+      }
+    },
+    responses: {
+      201: {
+        description: "User created successfully",
+        example: { 
+          id: 456, 
+          name: "Jane Doe",
+          email: "jane@example.com"
+        }
+      },
+      400: {
+        description: "Invalid data",
+        example: { error: "Invalid data" }
+      }
+    }
+  })
+  async createUser(@Req() req, @Res() res) {
+    res.status(201).json(req.body);
+  }
+}
+```
+
+**Advantages of @Swagger:**
+- ✅ **All in one place** - No need to use multiple decorators
+- ✅ **More readable** - Grouped and organized configuration
+- ✅ **Less code** - Single declaration instead of 4-5 decorators
+- ✅ **TypeScript** - Autocomplete and type validation
+- ✅ **Integrated examples** - Define examples directly in responses
+
+---
+
+### Individual Decorators (Traditional API)
+
+If you prefer more granularity, you can still use individual decorators:
+
+#### @ApiDoc()
 
 Documents basic endpoint information:
 
@@ -194,10 +296,303 @@ async oldEndpoint(@Req() req, @Res() res) {
 }
 ```
 
-## Complete Example
+## Plain JavaScript (Without Decorators)
+
+If you prefer pure JavaScript or don't want to use decorators, use the `addDoc()` method:
+
+```javascript
+import { AzuraClient } from "azurajs";
+import { setupSwagger, SwaggerGenerator } from "azurajs/swagger";
+
+const app = new AzuraClient();
+
+// Create Swagger generator
+const swagger = new SwaggerGenerator({
+  title: "Simple API",
+  description: "API documented the simple way",
+  version: "1.0.0",
+  tags: [
+    { name: "Users", description: "User management" },
+    { name: "Binary", description: "Encoding operations" }
+  ]
+});
+
+// GET route with query parameter
+app.get("/binary/encode", (req, res) => {
+  const text = req.query.q;
+  if (!text) {
+    return res.status(400).json({ error: "Query 'q' is required" });
+  }
+
+  const binary = text.split("").map(c => 
+    c.charCodeAt(0).toString(2).padStart(8, "0")
+  ).join("");
+
+  res.json({
+    input: text,
+    output: binary
+  });
+});
+
+// Document with addDoc() - EASY! ⭐
+swagger.addDoc({
+  method: "GET",
+  path: "/binary/encode",
+  summary: "Encode text to binary",
+  description: "Convert any text to binary representation",
+  tags: ["Binary"],
+  parameters: [
+    {
+      name: "q",
+      in: "query",
+      description: "Text to encode",
+      required: true,
+      schema: { type: "string" },
+      example: "Hello"
+    }
+  ],
+  responses: {
+    200: {
+      description: "Text encoded successfully",
+      example: {
+        input: "Hello",
+        output: "0100100001100101011011000110110001101111"
+      }
+    },
+    400: {
+      description: "Missing parameter",
+      example: { error: "Query 'q' is required" }
+    }
+  }
+});
+
+// POST route with body
+app.post("/users", (req, res) => {
+  const newUser = { id: Date.now(), ...req.body };
+  res.status(201).json(newUser);
+});
+
+swagger.addDoc({
+  method: "POST",
+  path: "/users",
+  summary: "Create new user",
+  tags: ["Users"],
+  requestBody: {
+    description: "User data",
+    required: true,
+    example: {
+      name: "John Smith",
+      email: "john@example.com"
+    }
+  },
+  responses: {
+    201: {
+      description: "User created",
+      example: {
+        id: 1234567890,
+        name: "John Smith",
+        email: "john@example.com"
+      }
+    }
+  }
+});
+
+// GET route with path parameter
+app.get("/users/:id", (req, res) => {
+  res.json({
+    id: req.params.id,
+    name: "John Doe",
+    email: "john@example.com"
+  });
+});
+
+swagger.addDoc({
+  method: "GET",
+  path: "/users/:id",
+  summary: "Get user by ID",
+  tags: ["Users"],
+  parameters: [
+    {
+      name: "id",
+      in: "path",
+      description: "User ID",
+      required: true,
+      schema: { type: "string" },
+      example: "123"
+    }
+  ],
+  responses: {
+    200: {
+      description: "User found",
+      example: {
+        id: "123",
+        name: "John Doe",
+        email: "john@example.com"
+      }
+    },
+    404: {
+      description: "User not found"
+    }
+  }
+});
+
+// Setup Swagger UI
+setupSwagger(app, swagger);
+
+app.listen(3000).then(() => {
+  console.log("🚀 Server: http://localhost:3000");
+  console.log("📚 Docs: http://localhost:3000/docs");
+});
+```
+
+**Advantages of `addDoc()`:**
+- ✅ **Pure JavaScript** - Works without TypeScript or decorators
+- ✅ **Simple** - Less verbose than SwaggerHelpers.createResponse
+- ✅ **Automatic** - Generates OpenAPI responses from examples
+- ✅ **Flexible** - Mix with traditional AzuraJS routes
+
+---
+
+## Complete Example (TypeScript with Decorators)
 
 ```typescript
 import { Controller, Get, Post, Put, Delete, Req, Res } from "azurajs/decorators";
+import { Swagger } from "azurajs/swagger";
+
+@Controller("/users")
+class UserController {
+  @Get("/")
+  @Swagger({
+    summary: "List all users",
+    tags: ["Users"],
+    parameters: [
+      {
+        name: "page",
+        in: "query",
+        schema: { type: "number" },
+        example: 1
+      },
+      {
+        name: "limit",
+        in: "query",
+        schema: { type: "number" },
+        example: 10
+      }
+    ],
+    responses: {
+      200: {
+        description: "User list",
+        example: [
+          { id: 1, name: "John Doe" },
+          { id: 2, name: "Jane Smith" }
+        ]
+      }
+    }
+  })
+  async listUsers(@Req() req, @Res() res) {
+    res.json([
+      { id: 1, name: "John Doe" },
+      { id: 2, name: "Jane Smith" }
+    ]);
+  }
+
+  @Get("/:id")
+  @Swagger({
+    summary: "Get user by ID",
+    tags: ["Users"],
+    parameters: [
+      {
+        name: "id",
+        in: "path",
+        required: true,
+        schema: { type: "string" },
+        example: "123"
+      }
+    ],
+    responses: {
+      200: {
+        description: "User found",
+        example: { id: "123", name: "John Doe", email: "john@example.com" }
+      },
+      404: {
+        description: "User not found"
+      }
+    }
+  })
+  async getUser(@Req() req, @Res() res) {
+    res.json({ id: req.params.id, name: "John Doe" });
+  }
+
+  @Post("/")
+  @Swagger({
+    summary: "Create new user",
+    tags: ["Users"],
+    requestBody: {
+      description: "User data",
+      required: true,
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              email: { type: "string", format: "email" }
+            },
+            required: ["name", "email"]
+          },
+          example: {
+            name: "Jane Doe",
+            email: "jane@example.com"
+          }
+        }
+      }
+    },
+    responses: {
+      201: {
+        description: "User created",
+        example: { id: 123, name: "Jane Doe", email: "jane@example.com" }
+      }
+    }
+  })
+  async createUser(@Req() req, @Res() res) {
+    res.status(201).json(req.body);
+  }
+
+  @Delete("/:id")
+  @Swagger({
+    summary: "Delete user",
+    tags: ["Users"],
+    parameters: [
+      {
+        name: "id",
+        in: "path",
+        required: true,
+        schema: { type: "string" },
+        example: "123"
+      }
+    ],
+    responses: {
+      204: {
+        description: "User deleted"
+      },
+      404: {
+        description: "User not found"
+      }
+    }
+  })
+  async deleteUser(@Req() req, @Res() res) {
+    res.status(204).send();
+  }
+}
+```
+
+---
+
+## Individual Decorators - Complete Example
+
+If you prefer using traditional decorators separately:
+
+```typescript
 import { 
   ApiDoc, 
   ApiResponse, 
@@ -309,6 +704,8 @@ class UserController {
   }
 }
 ```
+
+---
 
 ## Swagger UI Interface
 

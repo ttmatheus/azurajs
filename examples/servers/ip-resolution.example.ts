@@ -1,10 +1,32 @@
 /**
  * Examples of IP resolution with different trust proxy configurations
+ * 
+ * ⚠️ IMPORTANT: If req.ip is returning empty or undefined:
+ * 1. Make sure you have configured trustProxy in azura.config.ts
+ * 2. For apps behind proxies/load balancers (Nginx, Cloudflare, AWS ELB), set trustProxy: true
+ * 3. For development/direct connections, trustProxy should be false (default)
  */
 
 import { AzuraClient } from '../../package/src/infra/Server';
 
 const app = new AzuraClient();
+
+// ============================================
+// Example 0: Check your current IP
+// ============================================
+app.get('/', (req, res) => {
+  res.json({
+    ip: req.ip,           
+    ips: req.ips,         
+    method: req.method,
+    path: req.path,
+    headers: {
+      'x-forwarded-for': req.get('x-forwarded-for'),
+      'x-real-ip': req.get('x-real-ip'),
+    },
+    tip: req.ip ? '✅ IP resolved successfully!' : '⚠️ No IP found - check trustProxy config'
+  });
+});
 
 // ============================================
 // Example 1: Basic IP resolution (no proxy trust)
@@ -13,7 +35,7 @@ app.get('/ip/basic', (req, res) => {
   res.json({
     ip: req.ip,           // Direct socket IP
     ips: req.ips,         // Empty or socket IP only
-    explanation: 'No proxy headers are trusted'
+    explanation: 'No proxy headers are trusted (default behavior)'
   });
 });
 
@@ -126,7 +148,7 @@ app.use((req, res, next) => {
   
   if (!record || now > record.resetAt) {
     requestCounts.set(clientIp, { count: 1, resetAt: now + windowMs });
-    return next();
+    return next?.();
   }
 
   if (record.count >= limit) {
@@ -137,7 +159,7 @@ app.use((req, res, next) => {
   }
 
   record.count++;
-  next();
+  next?.();
 });
 
 // ============================================
@@ -169,7 +191,7 @@ app.use((req, res, next) => {
       ip: req.ip
     });
   }
-  next();
+  next?.();
 });
 
 // ============================================
@@ -183,7 +205,7 @@ app.use((req, res, next) => {
     ip: req.ip,
     userAgent: req.header('user-agent')
   });
-  next();
+  next?.();
 });
 
 export { app };

@@ -1,8 +1,17 @@
 import type { AzuraClient } from "../../infra/Server";
 import { SwaggerGenerator } from "./SwaggerGenerator";
 import type { SwaggerConfig } from "../../types/swagger.type";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, existsSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+// Resolve o diretório atual de forma compatível com ESM e CJS
+function getCurrentDir(): string {
+  if (typeof __dirname !== 'undefined') {
+    return __dirname;
+  }
+  return dirname(fileURLToPath(import.meta.url));
+}
 
 export class SwaggerIntegration {
   private generator: SwaggerGenerator;
@@ -31,8 +40,22 @@ export class SwaggerIntegration {
     // Route to serve Swagger UI
     this.app.get(config.path, (_req: any, res: any) => {
       try {
-        const htmlPath = join(__dirname, "swagger-ui-modern.html");
-        let html = readFileSync(htmlPath, "utf-8");
+        const currentDir = getCurrentDir();
+        const htmlPath = join(currentDir, "swagger-ui-modern.html");
+        
+        // Fallback para buscar em diferentes locais possíveis
+        let finalPath = htmlPath;
+        if (!existsSync(htmlPath)) {
+          // Tenta buscar na raiz do pacote (para desenvolvimento)
+          const srcPath = join(currentDir, "..", "..", "..", "src", "shared", "swagger", "swagger-ui-modern.html");
+          if (existsSync(srcPath)) {
+            finalPath = srcPath;
+          } else {
+            throw new Error(`Swagger UI HTML not found at ${htmlPath} or ${srcPath}`);
+          }
+        }
+
+        let html = readFileSync(finalPath, "utf-8");
 
         // Replace placeholders
         const doc = this.generator.getDocument();
@@ -42,7 +65,11 @@ export class SwaggerIntegration {
 
         res.type("html").send(html);
       } catch (error) {
-        res.status(500).json({ error: "Failed to load Swagger UI" });
+        console.error("Swagger UI error:", error);
+        res.status(500).json({ 
+          error: "Failed to load Swagger UI",
+          details: error instanceof Error ? error.message : String(error)
+        });
       }
     });
   }

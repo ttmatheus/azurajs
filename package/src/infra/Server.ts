@@ -266,18 +266,18 @@ export class AzuraClient {
       headers: headersObj as any,
       get: (name: string) => request.headers.get(name.toLowerCase()) || undefined,
       header: (name: string) => request.headers.get(name.toLowerCase()) || undefined,
+      socket: {
+        remoteAddress: request.headers.get("x-real-ip") || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1",
+      } as any,
     } as Partial<RequestServer>;
 
-    // Resolve IP for fetch handler
-    const forwardedFor = request.headers.get("x-forwarded-for");
-    if (this.opts.server?.trustProxy && forwardedFor) {
-      const ips = forwardedFor.split(/\s*,\s*/);
-      rawReq.ip = ips[0] || "";
-      rawReq.ips = ips;
-    } else {
-      rawReq.ip = "";
-      rawReq.ips = [];
-    }
+    // Resolve IP for fetch handler using the same logic as HTTP handler
+    const { ip, ips } = resolveIp(rawReq as any, {
+      trustProxy: this.opts.server?.trustProxy,
+      ipHeader: this.opts.server?.ipHeader,
+    });
+    rawReq.ip = ip;
+    rawReq.ips = ips;
 
     const finalReq = rawReq as Partial<RequestServer>;
 

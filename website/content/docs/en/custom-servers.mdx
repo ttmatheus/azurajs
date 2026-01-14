@@ -227,6 +227,8 @@ module.exports = {
 
 AzuraJS includes a built-in Node.js HTTP server:
 
+### TypeScript
+
 ```typescript title="node-server.ts"
 import { AzuraClient } from "azurajs";
 import { applyDecorators } from "azurajs/decorators";
@@ -244,6 +246,26 @@ applyDecorators(app, [UserController]);
 
 // Built-in Node.js HTTP server
 await app.listen(3000);
+```
+
+### JavaScript
+
+```javascript title="node-server.js"
+const { AzuraClient, applyDecorators } = require("azurajs");
+const { UserController } = require("./controllers/UserController");
+
+const app = new AzuraClient();
+
+// Simple route
+app.get("/", ({ req, res }) => {
+  res.json({ message: "Hello from Node.js!" });
+});
+
+// Or use controllers
+applyDecorators(app, [UserController]);
+
+// Built-in Node.js HTTP server
+app.listen(3000);
 ```
 
 Run it:

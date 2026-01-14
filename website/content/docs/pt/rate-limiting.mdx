@@ -1,12 +1,76 @@
 ---
 title: Rate Limiting
-description: Proteja sua API contra abuso com rate limiting
+description: Guia completo para proteger sua API contra abuso com estratégias de rate limiting
 icon: Shield
 ---
 
 # Rate Limiting 🛡️
 
-Rate limiting protege sua API contra abuso limitando o número de requisições que um cliente pode fazer em um período de tempo.
+Rate limiting é uma prática essencial de segurança que protege sua API contra abuso, ataques DDoS e consumo excessivo de recursos, limitando o número de requisições que um cliente pode fazer dentro de uma janela de tempo específica.
+
+## Por que Rate Limiting é Importante 🎯
+
+### Proteção Contra Ataques
+- **Ataques DDoS**: Previne ataques de negação de serviço que sobrecarregam seus servidores
+- **Força Bruta**: Limita tentativas de login para prevenir ataques de adivinhação de senha
+- **Abuso de API**: Impede atores maliciosos de fazer scraping ou sobrecarregar seus endpoints
+
+### Gerenciamento de Recursos
+- **Uso Justo**: Garante que todos os usuários tenham acesso justo aos recursos da API
+- **Controle de Custos**: Reduz custos de infraestrutura prevenindo chamadas excessivas
+- **Performance**: Mantém tempos de resposta consistentes para todos os usuários
+
+### Objetivos de Negócio
+- **Acesso por Camadas**: Implemente diferentes limites para usuários gratuitos, premium e enterprise
+- **Monetização**: Incentive upgrades oferecendo limites maiores em planos pagos
+- **Conformidade com SLA**: Atenda acordos de nível de serviço prevenindo esgotamento de recursos
+
+## Estratégias de Rate Limiting 📊
+
+### 1. Janela Fixa (Fixed Window)
+Contador simples que reseta em intervalos fixos.
+
+**Vantagens**: Fácil de implementar, previsível
+**Desvantagens**: Permite rajadas nos limites da janela
+
+```typescript
+// 100 requisições por hora
+// Janela: 12:00-13:00, 13:00-14:00, etc.
+```
+
+### 2. Janela Deslizante (Sliding Window)
+Mais preciso, considera período de tempo móvel.
+
+**Vantagens**: Previne rajadas nas bordas, mais justo
+**Desvantagens**: Mais complexo, requer rastreamento de timestamps
+
+```typescript
+// 100 requisições em qualquer período de 60 minutos
+// Janela constantemente em movimento
+```
+
+### 3. Balde de Tokens (Token Bucket)
+Tokens se regeneram a uma taxa fixa.
+
+**Vantagens**: Permite rajadas controladas, flexível
+**Desvantagens**: Algoritmo mais complexo
+
+```typescript
+// Balde com 100 tokens
+// Recarrega 10 tokens/minuto
+// Cada requisição custa 1 token
+```
+
+### 4. Balde Furado (Leaky Bucket)
+Requisições processadas a uma taxa constante.
+
+**Vantagens**: Fluxo de tráfego suave, previne picos
+**Desvantagens**: Pode atrasar requisições legítimas
+
+```typescript
+// Fila processa 10 requisições/segundo
+// Requisições extras aguardam ou são rejeitadas
+```
 
 ## Plugin Rate Limit Embutido 📦
 
@@ -458,6 +522,198 @@ export class AuthController {
     res.json({ user });
   }
 }
+```
+
+## Monitoramento e Análise 📊
+
+### Rastrear Atingimento de Limites
+
+```typescript
+import { Logger } from "azurajs/logger";
+
+function createRateLimiterWithMonitoring(
+  limit: number,
+  windowMs: number
+): RequestHandler {
+  const store = new Map<string, RateLimitRecord>();
+  
+  return async (req, res, next) => {
+    const ip = req.socket.remoteAddress || "unknown";
+    const now = Date.now();
+    
+    let record = store.get(ip);
+    
+    if (!record || now > record.resetAt) {
+      record = { count: 1, resetAt: now + windowMs };
+      store.set(ip, record);
+      await next();
+      return;
+    }
+    
+    record.count++;
+    
+    if (record.count > limit) {
+      // Log para monitoramento
+      Logger.warn("Rate limit excedido", {
+        ip,
+        path: req.url,
+        method: req.method,
+        count: record.count,
+        limit,
+        timestamp: new Date().toISOString()
+      });
+      
+      res.status(429).json({
+        error: "Muitas requisições",
+        retryAfter: Math.ceil((record.resetAt - now) / 1000)
+      });
+      return;
+    }
+    
+    await next();
+  };
+}
+```
+
+### Coleção de Métricas
+
+```typescript
+interface RateLimitMetrics {
+  totalRequests: number;
+  blockedRequests: number;
+  topOffenders: Map<string, number>;
+}
+
+const metrics: RateLimitMetrics = {
+  totalRequests: 0,
+  blockedRequests: 0,
+  topOffenders: new Map()
+};
+
+function updateMetrics(ip: string, blocked: boolean) {
+  metrics.totalRequests++;
+  if (blocked) {
+    metrics.blockedRequests++;
+    const count = metrics.topOffenders.get(ip) || 0;
+    metrics.topOffenders.set(ip, count + 1);
+  }
+}
+
+// Expor endpoint de métricas
+@Get("/metrics/rate-limits")
+getRateLimitMetrics(@Res() res: ResponseServer) {
+  const topOffenders = Array.from(metrics.topOffenders.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+  
+  res.json({
+    totalRequests: metrics.totalRequests,
+    blockedRequests: metrics.blockedRequests,
+    blockRate: (metrics.blockedRequests / metrics.totalRequests * 100).toFixed(2) + '%',
+    topOffenders: Object.fromEntries(topOffenders)
+  });
+}
+```
+
+## Testando Rate Limits 🧪
+
+### Teste Manual
+
+```bash
+# Testar com curl
+for i in {1..150}; do
+  curl -w "\\n%{http_code}" https://api.example.com/test
+  sleep 0.1
+done
+
+# Deve ver:
+# 200 (requisições 1-100)
+# 429 (requisições 101+)
+```
+
+### Teste Automatizado
+
+```typescript
+import { describe, it, expect } from "@jest/globals";
+
+describe("Rate Limiting", () => {
+  it("deve permitir requisições abaixo do limite", async () => {
+    for (let i = 0; i < 10; i++) {
+      const response = await fetch("http://localhost:3000/api/test");
+      expect(response.status).toBe(200);
+    }
+  });
+  
+  it("deve bloquear requisições acima do limite", async () => {
+    // Fazer 100 requisições para atingir limite
+    for (let i = 0; i < 100; i++) {
+      await fetch("http://localhost:3000/api/test");
+    }
+    
+    // Próxima requisição deve ser bloqueada
+    const response = await fetch("http://localhost:3000/api/test");
+    expect(response.status).toBe(429);
+    
+    // Verificar headers
+    expect(response.headers.get("X-RateLimit-Remaining")).toBe("0");
+    expect(response.headers.get("Retry-After")).toBeTruthy();
+  });
+  
+  it("deve resetar após janela de tempo", async () => {
+    // Atingir limite
+    for (let i = 0; i < 100; i++) {
+      await fetch("http://localhost:3000/api/test");
+    }
+    
+    // Aguardar reset da janela (ex: 60 segundos)
+    await new Promise(resolve => setTimeout(resolve, 61000));
+    
+    // Deve funcionar novamente
+    const response = await fetch("http://localhost:3000/api/test");
+    expect(response.status).toBe(200);
+  });
+});
+```
+
+## Rate Limits Dinâmicos Baseados em Carga 🎚️
+
+```typescript
+interface SystemLoad {
+  cpu: number;
+  memory: number;
+}
+
+function getSystemLoad(): SystemLoad {
+  // Simplificado - use ferramentas reais de monitoramento em produção
+  return {
+    cpu: Math.random() * 100,
+    memory: Math.random() * 100
+  };
+}
+
+function createAdaptiveRateLimiter(
+  baseLimit: number,
+  windowMs: number
+): RequestHandler {
+  return async (req, res, next) => {
+    const load = getSystemLoad();
+    
+    // Reduzir limite quando sistema está sob estresse
+    let adjustedLimit = baseLimit;
+    
+    if (load.cpu > 80 || load.memory > 80) {
+      adjustedLimit = Math.floor(baseLimit * 0.5);  // Reduzir para 50%
+    } else if (load.cpu > 60 || load.memory > 60) {
+      adjustedLimit = Math.floor(baseLimit * 0.75);  // Reduzir para 75%
+    }
+    
+    // Aplicar rate limiting com limite ajustado
+    const limiter = createRateLimiter(adjustedLimit, windowMs);
+    await limiter(req, res, next);
+  };
+}
+
+app.use(createAdaptiveRateLimiter(1000, 60000));
 ```
 
 ## Melhores Práticas ✨

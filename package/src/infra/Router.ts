@@ -30,9 +30,9 @@ export class Router {
 
       if (seg.startsWith(":")) {
         const paramKey = ":";
-        child = node.children.get(paramKey);
+        const existingChild = node.children.get(paramKey);
         
-        if (!child) {
+        if (!existingChild) {
           child = new Node();
           child.isParam = true;
           child.paramName = seg.slice(1);
@@ -42,6 +42,7 @@ export class Router {
             console.log(`[Router:DEBUG] Created param node: :${seg.slice(1)}`);
           }
         } else {
+          child = existingChild;
           // Update paramName if it's different (shouldn't happen in normal usage)
           if (child.paramName !== seg.slice(1)) {
             if (this.debug) {
@@ -50,15 +51,17 @@ export class Router {
           }
         }
       } else {
-        child = node.children.get(seg);
+        const existingLiteralChild = node.children.get(seg);
         
-        if (!child) {
+        if (!existingLiteralChild) {
           child = new Node();
           node.children.set(seg, child);
           
           if (this.debug) {
             console.log(`[Router:DEBUG] Created literal node: "${seg}"`);
           }
+        } else {
+          child = existingLiteralChild;
         }
       }
 

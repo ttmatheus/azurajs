@@ -4,42 +4,986 @@ description: Build your first API with AzuraJS in minutes
 icon: Rocket
 ---
 
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
 # Quick Start 🚀
 
-Build your first RESTful API with AzuraJS in just a few minutes!
+In this guide, you'll create a complete REST API with CRUD operations (Create, Read, Update, Delete) in just a few minutes.
 
-## Step 1: Create Configuration File ⚙️
+<Callout type="info" title="📋 What we're building">
+A user management API with:
+- ✅ List all users (GET)
+- ✅ Get user by ID (GET)
+- ✅ Create new users (POST)
+- ✅ Update users (PUT)
+- ✅ Delete users (DELETE)
+</Callout>
 
-### TypeScript
+## Prerequisites
 
-Create `azura.config.ts` in your project root:
+Make sure you have:
+- ✅ AzuraJS installed ([see installation guide](installation))
+- ✅ TypeScript configured (if using decorators)
+- ✅ Code editor open
+
+---
+
+## Step 1: Configuration File ⚙️
+
+The configuration file controls server behavior. Create it in the project root:
+
+<Tabs items={['TypeScript', 'JavaScript']}>
+  <Tab value="TypeScript">
+    ```typescript title="azura.config.ts"
+    import type { ConfigTypes } from "azurajs/config";
+
+    const config: ConfigTypes = {
+      // Development environment
+      environment: "development",
+      
+      // Server settings
+      server: {
+        port: 3000,              // Port where the server will run
+        cluster: false,          // Disable cluster in dev
+        ipHost: true,            // Auto-detect IP
+        https: false,            // Simple HTTP (for dev)
+      },
+      
+      // Logging settings
+      logging: {
+        enabled: true,           // Enable logs
+        showDetails: true,       // Show request details
+      },
+      
+      // Optional plugins
+      plugins: {
+        // CORS - allow requests from other domains
+        cors: {
+          enabled: true,
+          origins: ["*"],        // Accept any origin (dev only!)
+          methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+          allowedHeaders: ["Content-Type", "Authorization"],
+        },
+        
+        // Rate Limiting - protection against abuse
+        rateLimit: {
+          enabled: false,        // Disabled in dev
+          limit: 100,            // Maximum 100 requests
+          timeframe: 60000,      // Per minute (60000ms)
+        },
+      },
+    };
+
+    export default config;
+    ```
+  </Tab>
+  
+  <Tab value="JavaScript">
+    ```javascript title="azura.config.js"
+    const config = {
+      // Development environment
+      environment: "development",
+      
+      // Server settings
+      server: {
+        port: 3000,              // Port where the server will run
+        cluster: false,          // Disable cluster in dev
+        ipHost: true,            // Auto-detect IP
+        https: false,            // Simple HTTP (for dev)
+      },
+      
+      // Logging settings
+      logging: {
+        enabled: true,           // Enable logs
+        showDetails: true,       // Show request details
+      },
+      
+      // Optional plugins
+      plugins: {
+        // CORS - allow requests from other domains
+        cors: {
+          enabled: true,
+          origins: ["*"],        // Accept any origin (dev only!)
+          methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+          allowedHeaders: ["Content-Type", "Authorization"],
+        },
+        
+        // Rate Limiting - protection against abuse
+        rateLimit: {
+          enabled: false,        // Disabled in dev
+          limit: 100,            // Maximum 100 requests
+          timeframe: 60000,      // Per minute (60000ms)
+        },
+      },
+    };
+
+    module.exports = config;
+    ```
+  </Tab>
+</Tabs>
+
+<Callout type="warn" title="⚠️ Important for Production">
+In production, always:
+- Configure CORS with specific origins (don't use `["*"]`)
+- Enable rate limiting to protect against attacks
+- Use `environment: "production"`
+- Configure HTTPS with SSL certificates
+</Callout>
+
+---
+
+## Step 2: Create the Controller 🎯
+
+Now let's create a controller that manages users. AzuraJS supports two approaches:
+
+<Tabs items={['TypeScript (Decorators)', 'JavaScript (Functional)']}>
+  <Tab value="TypeScript (Decorators)">
+    Create `src/controllers/UserController.ts`:
+
+    ```typescript title="src/controllers/UserController.ts"
+    import { 
+      Controller, 
+      Get, 
+      Post, 
+      Put, 
+      Delete, 
+      Body, 
+      Param, 
+      Res 
+    } from "azurajs/decorators";
+    import type { ResponseServer } from "azurajs/types";
+
+    // In-memory database (replace with real DB in production)
+    const users = [
+      { id: 1, name: "Alice", email: "alice@example.com" },
+      { id: 2, name: "Bob", email: "bob@example.com" },
+    ];
+
+    @Controller("/api/users")  // Define the base route prefix
+    export class UserController {
+      
+      // GET /api/users - List all users
+      @Get()
+      getAllUsers(@Res() res: ResponseServer) {
+        res.json({ 
+          success: true, 
+          data: users,
+          total: users.length
+        });
+      }
+
+      // GET /api/users/:id - Get specific user
+      @Get("/:id")
+      getUserById(
+        @Param("id") id: string,  // Capture URL parameter
+        @Res() res: ResponseServer
+      ) {
+        const user = users.find(u => u.id === Number(id));
+        
+        if (!user) {
+          return res.status(404).json({ 
+            success: false, 
+            error: "User not found" 
+          });
+        }
+        
+        res.json({ success: true, data: user });
+      }
+
+      // POST /api/users - Create new user
+      @Post()
+      createUser(
+        @Body() body: any,  // Capture request body
+        @Res() res: ResponseServer
+      ) {
+        // Basic validation
+        if (!body.name || !body.email) {
+          return res.status(400).json({
+            success: false,
+            error: "Name and email are required"
+          });
+        }
+
+        const newUser = {
+          id: users.length + 1,
+          name: body.name,
+          email: body.email,
+        };
+        
+        users.push(newUser);
+        
+        res.status(201).json({ 
+          success: true, 
+          data: newUser,
+          message: "User created successfully"
+        });
+      }
+
+      // PUT /api/users/:id - Update existing user
+      @Put("/:id")
+      updateUser(
+        @Param("id") id: string,
+        @Body() body: any,
+        @Res() res: ResponseServer
+      ) {
+        const user = users.find(u => u.id === Number(id));
+        
+        if (!user) {
+          return res.status(404).json({ 
+            success: false, 
+            error: "User not found" 
+          });
+        }
+        
+        // Update only provided fields
+        if (body.name) user.name = body.name;
+        if (body.email) user.email = body.email;
+        
+        res.json({ 
+          success: true, 
+          data: user,
+          message: "User updated successfully"
+        });
+      }
+
+      // DELETE /api/users/:id - Remove user
+      @Delete("/:id")
+      deleteUser(
+        @Param("id") id: string,
+        @Res() res: ResponseServer
+      ) {
+        const index = users.findIndex(u => u.id === Number(id));
+        
+        if (index === -1) {
+          return res.status(404).json({ 
+            success: false, 
+            error: "User not found" 
+          });
+        }
+        
+        users.splice(index, 1);
+        
+        res.json({ 
+          success: true, 
+          message: "User deleted successfully" 
+        });
+      }
+    }
+    ```
+
+    <Callout type="tip" title="💡 Tip">
+    **Decorators** allow you to organize routes elegantly and type-safely. Each controller method corresponds to an HTTP route!
+    </Callout>
+  </Tab>
+
+  <Tab value="JavaScript (Functional)">
+    For those who prefer JavaScript or a more functional approach, create `src/index.js`:
+
+    ```javascript title="src/index.js"
+    const { AzuraClient } = require("azurajs");
+
+    // In-memory database (replace with real DB in production)
+    const users = [
+      { id: 1, name: "Alice", email: "alice@example.com" },
+      { id: 2, name: "Bob", email: "bob@example.com" },
+    ];
+
+    // Create the server instance
+    const app = new AzuraClient();
+
+    // GET /api/users - List all users
+    app.get("/api/users", ({ req, res }) => {
+      res.json({ 
+        success: true, 
+        data: users,
+        total: users.length
+      });
+    });
+
+    // GET /api/users/:id - Get specific user
+    app.get("/api/users/:id", ({ req, res }) => {
+      const { id } = req.params;  // Capture URL parameter
+      const user = users.find(u => u.id === Number(id));
+      
+      if (!user) {
+        return res.status(404).json({ 
+          success: false, 
+          error: "User not found" 
+        });
+      }
+      
+      res.json({ success: true, data: user });
+    });
+
+    // POST /api/users - Create new user
+    app.post("/api/users", ({ req, res }) => {
+      const body = req.body;  // Capture request body
+      
+      // Basic validation
+      if (!body.name || !body.email) {
+        return res.status(400).json({
+          success: false,
+          error: "Name and email are required"
+        });
+      }
+
+      const newUser = {
+        id: users.length + 1,
+        name: body.name,
+        email: body.email,
+      };
+      
+      users.push(newUser);
+      
+      res.status(201).json({ 
+        success: true, 
+        data: newUser,
+        message: "User created successfully"
+      });
+    });
+
+    // PUT /api/users/:id - Update existing user
+    app.put("/api/users/:id", ({ req, res }) => {
+      const { id } = req.params;
+      const body = req.body;
+      const user = users.find(u => u.id === Number(id));
+      
+      if (!user) {
+        return res.status(404).json({ 
+          success: false, 
+          error: "User not found" 
+        });
+      }
+      
+      // Update only provided fields
+      if (body.name) user.name = body.name;
+      if (body.email) user.email = body.email;
+      
+      res.json({ 
+        success: true, 
+        data: user,
+        message: "User updated successfully"
+      });
+    });
+
+    // DELETE /api/users/:id - Remove user
+    app.delete("/api/users/:id", ({ req, res }) => {
+      const { id } = req.params;
+      const index = users.findIndex(u => u.id === Number(id));
+      
+      if (index === -1) {
+        return res.status(404).json({ 
+          success: false, 
+          error: "User not found" 
+        });
+      }
+      
+      users.splice(index, 1);
+      
+      res.json({ 
+        success: true, 
+        message: "User deleted successfully"
+      });
+    });
+
+    // Start the server
+    app.listen();
+    ```
+
+    <Callout type="tip" title="💡 Tip">
+    The **functional approach** is more familiar if you come from Express. It's straightforward, simple, and doesn't require decorators!
+    </Callout>
+  </Tab>
+</Tabs>
+
+---
+
+## Step 3: Create Main File 🖥️
+
+<Tabs items={['TypeScript (Decorators)', 'JavaScript (Skip)']}>
+  <Tab value="TypeScript (Decorators)">
+    If you used decorators, you need to create a main file to register the controllers.
+
+    Create `src/index.ts`:
+
+    ```typescript title="src/index.ts"
+    import { AzuraClient } from "azurajs";
+    import { applyDecorators } from "azurajs/decorators";
+    import { UserController } from "./controllers/UserController";
+
+    // Initialize the server
+    const app = new AzuraClient();
+
+    // Register controllers
+    // You can pass multiple controllers here
+    applyDecorators(app, [
+      UserController,
+      // Add more controllers as needed
+    ]);
+
+    // Start the server
+    app.listen().then(() => {
+      console.log("✅ API ready to use!");
+    });
+    ```
+
+    <Callout type="info">
+    The `applyDecorators()` function processes all controller decorators and registers routes automatically.
+    </Callout>
+  </Tab>
+
+  <Tab value="JavaScript (Skip)">
+    **If you used the functional JavaScript approach, you can skip this step!**
+    
+    Your `src/index.js` file already contains everything you need. 😊
+  </Tab>
+</Tabs>
+
+---
+
+## Step 4: Run the Server 🏃
+
+Now let's start the server and see the magic happen!
+
+<Tabs items={['TypeScript', 'JavaScript']}>
+  <Tab value="TypeScript">
+    Run your TypeScript application:
+
+    ```bash
+    # Recommended: Bun (super fast!)
+    bun run src/index.ts
+
+    # Alternative: Node.js with tsx
+    npx tsx src/index.ts
+
+    # With watch mode (auto reload)
+    npx tsx watch src/index.ts
+    # or
+    bun --watch src/index.ts
+    ```
+
+    ### Add Scripts to package.json
+
+    To make it easier, add these scripts:
+
+    ```json title="package.json"
+    {
+      "scripts": {
+        "dev": "tsx watch src/index.ts",
+        "start": "tsx src/index.ts",
+        "build": "tsc",
+        "prod": "node dist/index.js"
+      }
+    }
+    ```
+
+    Now run with:
+    ```bash
+    npm run dev  # Development with reload
+    npm start    # Single execution
+    ```
+  </Tab>
+
+  <Tab value="JavaScript">
+    Run your JavaScript application:
+
+    ```bash
+    # Recommended: Bun
+    bun run src/index.js
+
+    # Alternative: Node.js
+    node src/index.js
+
+    # With watch mode (Node 18+)
+    node --watch src/index.js
+    ```
+
+    ### Add Scripts to package.json
+
+    To make it easier, add these scripts:
+
+    ```json title="package.json"
+    {
+      "scripts": {
+        "dev": "node --watch src/index.js",
+        "start": "node src/index.js"
+      }
+    }
+    ```
+
+    Now run with:
+    ```bash
+    npm run dev   # Development with reload
+    npm start     # Single execution
+    ```
+  </Tab>
+</Tabs>
+
+### Expected Output
+
+If everything went well, you should see something like this:
+
+```
+🚀 AzuraJS Server Starting...
+✅ Configuration loaded
+📋 Registered routes:
+   GET    /api/users
+   GET    /api/users/:id
+   POST   /api/users
+   PUT    /api/users/:id
+   DELETE /api/users/:id
+
+🌐 Server running at:
+   http://localhost:3000
+   http://192.168.1.100:3000 (your local IP)
+
+Press Ctrl+C to stop
+```
+
+<Callout type="success">
+**Congratulations!** 🎉 Your API is up and running, ready to receive requests!
+</Callout>
+
+---
+
+## Step 5: Test the API 🧪
+
+Let's test all endpoints of our API! You can use curl, Postman, Thunder Client, or any HTTP client.
+
+### 📋 List All Users
+
+<Tabs items={['curl', 'JavaScript Fetch', 'Result']}>
+  <Tab value="curl">
+    ```bash
+    curl http://localhost:3000/api/users
+    ```
+  </Tab>
+  
+  <Tab value="JavaScript Fetch">
+    ```javascript
+    fetch('http://localhost:3000/api/users')
+      .then(res => res.json())
+      .then(data => console.log(data));
+    ```
+  </Tab>
+  
+  <Tab value="Result">
+    ```json
+    {
+      "success": true,
+      "data": [
+        { "id": 1, "name": "Alice", "email": "alice@example.com" },
+        { "id": 2, "name": "Bob", "email": "bob@example.com" }
+      ],
+      "total": 2
+    }
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+### 🔍 Get User by ID
+
+<Tabs items={['curl', 'JavaScript Fetch', 'Result']}>
+  <Tab value="curl">
+    ```bash
+    curl http://localhost:3000/api/users/1
+    ```
+  </Tab>
+  
+  <Tab value="JavaScript Fetch">
+    ```javascript
+    fetch('http://localhost:3000/api/users/1')
+      .then(res => res.json())
+      .then(data => console.log(data));
+    ```
+  </Tab>
+  
+  <Tab value="Result">
+    ```json
+    {
+      "success": true,
+      "data": {
+        "id": 1,
+        "name": "Alice",
+        "email": "alice@example.com"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+### ➕ Create New User
+
+<Tabs items={['curl', 'JavaScript Fetch', 'Result']}>
+  <Tab value="curl">
+    ```bash
+    curl -X POST http://localhost:3000/api/users \
+      -H "Content-Type: application/json" \
+      -d '{"name":"Charlie","email":"charlie@example.com"}'
+    ```
+  </Tab>
+  
+  <Tab value="JavaScript Fetch">
+    ```javascript
+    fetch('http://localhost:3000/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Charlie',
+        email: 'charlie@example.com'
+      })
+    })
+      .then(res => res.json())
+      .then(data => console.log(data));
+    ```
+  </Tab>
+  
+  <Tab value="Result">
+    ```json
+    {
+      "success": true,
+      "data": {
+        "id": 3,
+        "name": "Charlie",
+        "email": "charlie@example.com"
+      },
+      "message": "User created successfully"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+### ✏️ Update User
+
+<Tabs items={['curl', 'JavaScript Fetch', 'Result']}>
+  <Tab value="curl">
+    ```bash
+    curl -X PUT http://localhost:3000/api/users/1 \
+      -H "Content-Type: application/json" \
+      -d '{"name":"Alice Smith"}'
+    ```
+  </Tab>
+  
+  <Tab value="JavaScript Fetch">
+    ```javascript
+    fetch('http://localhost:3000/api/users/1', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Alice Smith'
+      })
+    })
+      .then(res => res.json())
+      .then(data => console.log(data));
+    ```
+  </Tab>
+  
+  <Tab value="Result">
+    ```json
+    {
+      "success": true,
+      "data": {
+        "id": 1,
+        "name": "Alice Smith",
+        "email": "alice@example.com"
+      },
+      "message": "User updated successfully"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+### 🗑️ Delete User
+
+<Tabs items={['curl', 'JavaScript Fetch', 'Result']}>
+  <Tab value="curl">
+    ```bash
+    curl -X DELETE http://localhost:3000/api/users/2
+    ```
+  </Tab>
+  
+  <Tab value="JavaScript Fetch">
+    ```javascript
+    fetch('http://localhost:3000/api/users/2', {
+      method: 'DELETE'
+    })
+      .then(res => res.json())
+      .then(data => console.log(data));
+    ```
+  </Tab>
+  
+  <Tab value="Result">
+    ```json
+    {
+      "success": true,
+      "message": "User deleted successfully"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+### 🧪 Testing Errors
+
+Test how the API responds to errors:
+
+**User not found:**
+```bash
+curl http://localhost:3000/api/users/999
+```
+
+Result:
+```json
+{
+  "success": false,
+  "error": "User not found"
+}
+```
+
+**Invalid data:**
+```bash
+curl -X POST http://localhost:3000/api/users \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+Result:
+```json
+{
+  "success": false,
+  "error": "Name and email are required"
+}
+```
+
+<Callout type="tip" title="💡 Recommended Tools">
+- **[Postman](https://www.postman.com/)** - Complete HTTP client with GUI
+- **[Thunder Client](https://www.thunderclient.com/)** - Lightweight VS Code extension
+- **[Insomnia](https://insomnia.rest/)** - Modern and free HTTP client
+- **[HTTPie](https://httpie.io/)** - More user-friendly command-line client than curl
+</Callout>
+---
+
+## 🎉 Congratulations! You Built Your API!
+
+You just created a complete and functional REST API with AzuraJS! 
+
+### 📚 What You Learned
+
+<Tabs items={['With Decorators', 'Functional Approach']}>
+  <Tab value="With Decorators">
+    ✅ Configure AzuraJS with configuration file  
+    ✅ Create organized controllers with classes  
+    ✅ Use decorators (`@Controller`, `@Get`, `@Post`, etc.)  
+    ✅ Inject parameters with `@Body`, `@Param`, `@Res`  
+    ✅ Register controllers with `applyDecorators()`  
+    ✅ Structure a professional TypeScript project  
+  </Tab>
+  
+  <Tab value="Functional Approach">
+    ✅ Configure AzuraJS with configuration file  
+    ✅ Define routes with simple functional API  
+    ✅ Access URL parameters and request body  
+    ✅ Return JSON responses with status codes  
+    ✅ Handle errors and basic validations  
+    ✅ Structure a clean JavaScript project  
+  </Tab>
+</Tabs>
+
+---
+
+## 🚀 Next Steps
+
+Now that you've mastered the basics, explore more advanced features:
+
+### 📖 Fundamental Concepts
+
+<Cards>
+  <Card 
+    title="⚙️ Advanced Configuration" 
+    href="configuration" 
+    description="HTTPS, clusters, environment variables and production configuration" 
+  />
+  <Card 
+    title="🎯 Professional Controllers" 
+    href="controllers" 
+    description="Code organization, multiple controllers and best practices" 
+  />
+  <Card 
+    title="🛣️ Advanced Routing" 
+    href="routing" 
+    description="Dynamic routes, prefixes, groups and complex patterns" 
+  />
+  <Card 
+    title="🔧 Middleware" 
+    href="middleware" 
+    description="Create custom middleware, authentication and interceptors" 
+  />
+</Cards>
+
+### ✨ Advanced Features
+
+<Cards>
+  <Card 
+    title="✅ Data Validation" 
+    href="validation" 
+    description="Type-safe DTOs, validation schemas and custom messages" 
+  />
+  <Card 
+    title="🍪 Cookies and Sessions" 
+    href="cookies" 
+    description="Secure cookie management and session-based authentication" 
+  />
+  <Card 
+    title="🌐 CORS and Security" 
+    href="cors" 
+    description="Configure CORS, security headers and attack protection" 
+  />
+  <Card 
+    title="🛡️ Rate Limiting" 
+    href="rate-limiting" 
+    description="Protect your API against abuse and DDoS attacks" 
+  />
+</Cards>
+
+### 🏗️ Production
+
+<Cards>
+  <Card 
+    title="⚡ Cluster Mode" 
+    href="cluster-mode" 
+    description="Leverage all CPU cores for maximum performance" 
+  />
+  <Card 
+    title="🚨 Error Handling" 
+    href="error-handling" 
+    description="Robust error handling and structured messages" 
+  />
+  <Card 
+    title="📊 Logging" 
+    href="logger" 
+    description="Professional logging system with levels and context" 
+  />
+  <Card 
+    title="📖 Swagger Documentation" 
+    href="swagger" 
+    description="Generate automatic OpenAPI documentation for your API" 
+  />
+</Cards>
+
+---
+
+## 💡 Productivity Tips
+
+### 🔄 Hot Reload in Development
+
+Enable automatic reload to speed up development:
+
+<Tabs items={['Bun', 'Node + tsx', 'Nodemon']}>
+  <Tab value="Bun">
+    ```bash
+    bun --watch src/index.ts
+    ```
+    
+    ```json title="package.json"
+    {
+      "scripts": {
+        "dev": "bun --watch src/index.ts"
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab value="Node + tsx">
+    ```bash
+    npx tsx watch src/index.ts
+    ```
+    
+    ```json title="package.json"
+    {
+      "scripts": {
+        "dev": "tsx watch src/index.ts"
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab value="Nodemon">
+    ```bash
+    npm install -D nodemon tsx
+    ```
+    
+    ```json title="nodemon.json"
+    {
+      "watch": ["src"],
+      "ext": "ts,js",
+      "exec": "tsx src/index.ts"
+    }
+    ```
+    
+    ```json title="package.json"
+    {
+      "scripts": {
+        "dev": "nodemon"
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### 🗂️ Recommended Project Organization
+
+```
+my-project/
+├── src/
+│   ├── index.ts                 # Entry point
+│   ├── controllers/             # Application controllers
+│   │   ├── UserController.ts
+│   │   ├── AuthController.ts
+│   │   └── index.ts            # Export all
+│   ├── middleware/              # Custom middleware
+│   │   ├── auth.ts
+│   │   └── validation.ts
+│   ├── models/                  # Data models
+│   │   └── User.ts
+│   ├── services/                # Business logic
+│   │   └── UserService.ts
+│   └── utils/                   # Utilities
+│       └── database.ts
+├── azura.config.ts              # AzuraJS configuration
+├── tsconfig.json                # TypeScript configuration
+└── package.json                 # Dependencies
+```
+
+### 🌍 Environment Variables
+
+Use environment variables for sensitive configuration:
 
 ```typescript title="azura.config.ts"
 import type { ConfigTypes } from "azurajs/config";
 
 const config: ConfigTypes = {
-  environment: "development",
+  environment: process.env.NODE_ENV || "development",
   server: {
-    port: 3000,
-    cluster: false,
-    ipHost: true,
-    https: false,
-  },
-  logging: {
-    enabled: true,
-    showDetails: true,
+    port: Number(process.env.PORT) || 3000,
+    cluster: process.env.NODE_ENV === "production",
   },
   plugins: {
     cors: {
       enabled: true,
-      origins: ["*"],
-      methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-      allowedHeaders: ["Content-Type", "Authorization"],
+      origins: process.env.ALLOWED_ORIGINS?.split(",") || ["*"],
     },
     rateLimit: {
-      enabled: false,
-      limit: 100,
-      timeframe: 60000, // 1 minute
+      enabled: process.env.NODE_ENV === "production",
+      limit: Number(process.env.RATE_LIMIT) || 100,
     },
   },
 };
@@ -47,424 +991,51 @@ const config: ConfigTypes = {
 export default config;
 ```
 
-### JavaScript
+Create a `.env` file:
 
-Create `azura.config.js` in your project root:
-
-```javascript title="azura.config.js"
-const config = {
-  environment: "development",
-  server: {
-    port: 3000,
-    cluster: false,
-    ipHost: true,
-    https: false,
-  },
-  logging: {
-    enabled: true,
-    showDetails: true,
-  },
-  plugins: {
-    cors: {
-      enabled: true,
-      origins: ["*"],
-      methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-      allowedHeaders: ["Content-Type", "Authorization"],
-    },
-    rateLimit: {
-      enabled: false,
-      limit: 100,
-      timeframe: 60000, // 1 minute
-    },
-  },
-};
-
-module.exports = config;
+```bash title=".env"
+NODE_ENV=development
+PORT=3000
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+RATE_LIMIT=100
 ```
 
-## Step 2: Create Your Server 🎯
-
-### TypeScript with Decorators
-
-Create controller with decorators in `src/controllers/UserController.ts`:
-
-```typescript title="src/controllers/UserController.ts"
-import { Controller, Get, Post, Put, Delete, Body, Param, Res } from "azurajs/decorators";
-import type { ResponseServer } from "azurajs/types";
-
-// In-memory database (for demo purposes)
-const users = [
-  { id: 1, name: "Alice", email: "alice@example.com" },
-  { id: 2, name: "Bob", email: "bob@example.com" },
-];
-
-@Controller("/api/users")
-export class UserController {
-  
-  // GET /api/users - Get all users
-  @Get()
-  getAllUsers(@Res() res: ResponseServer) {
-    res.json({ 
-      success: true, 
-      data: users 
-    });
-  }
-
-  // GET /api/users/:id - Get user by ID
-  @Get("/:id")
-  getUserById(@Param("id") id: string, @Res() res: ResponseServer) {
-    const user = users.find(u => u.id === Number(id));
-    
-    if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        error: "User not found" 
-      });
-    }
-    
-    res.json({ success: true, data: user });
-  }
-
-  // POST /api/users - Create a new user
-  @Post()
-  createUser(@Body() body: any, @Res() res: ResponseServer) {
-    const newUser = {
-      id: users.length + 1,
-      name: body.name,
-      email: body.email,
-    };
-    
-    users.push(newUser);
-    
-    res.status(201).json({ 
-      success: true, 
-      data: newUser 
-    });
-  }
-
-  // PUT /api/users/:id - Update user
-  @Put("/:id")
-  updateUser(
-    @Param("id") id: string, 
-    @Body() body: any, 
-    @Res() res: ResponseServer
-  ) {
-    const user = users.find(u => u.id === Number(id));
-    
-    if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        error: "User not found" 
-      });
-    }
-    
-    if (body.name) user.name = body.name;
-    if (body.email) user.email = body.email;
-    
-    res.json({ success: true, data: user });
-  }
-
-  // DELETE /api/users/:id - Delete user
-  @Delete("/:id")
-  deleteUser(@Param("id") id: string, @Res() res: ResponseServer) {
-    const index = users.findIndex(u => u.id === Number(id));
-    
-    if (index === -1) {
-      return res.status(404).json({ 
-        success: false, 
-        error: "User not found" 
-      });
-    }
-    
-    users.splice(index, 1);
-    
-    res.json({ 
-      success: true, 
-      message: "User deleted successfully" 
-    });
-  }
-}
-```
-
-### JavaScript with Functional API
-
-Create server with functional routing in `src/index.js`:
-
-```javascript title="src/index.js"
-const { AzuraClient } = require("azurajs");
-const { createLoggingMiddleware } = require("azurajs/middleware");
-
-// In-memory database (for demo purposes)
-const users = [
-  { id: 1, name: "Alice", email: "alice@example.com" },
-  { id: 2, name: "Bob", email: "bob@example.com" },
-];
-
-// Create the application instance
-const app = new AzuraClient();
-
-// Add logging middleware
-const logger = createLoggingMiddleware(app.getConfig());
-app.use(logger);
-
-// GET /api/users - Get all users
-app.get("/api/users", ({ req, res }) => {
-  res.json({ 
-    success: true, 
-    data: users 
-  });
-});
-
-// GET /api/users/:id - Get user by ID
-app.get("/api/users/:id", ({ req, res }) => {
-  const { id } = req.params;
-  const user = users.find(u => u.id === Number(id));
-  
-  if (!user) {
-    return res.status(404).json({ 
-      success: false, 
-      error: "User not found" 
-    });
-  }
-  
-  res.json({ success: true, data: user });
-});
-
-// POST /api/users - Create a new user
-app.post("/api/users", ({ req, res }) => {
-  const body = req.body;
-  const newUser = {
-    id: users.length + 1,
-    name: body.name,
-    email: body.email,
-  };
-  
-  users.push(newUser);
-  
-  res.status(201).json({ 
-    success: true, 
-    data: newUser 
-  });
-});
-
-// PUT /api/users/:id - Update user
-app.put("/api/users/:id", ({ req, res }) => {
-  const { id } = req.params;
-  const body = req.body;
-  const user = users.find(u => u.id === Number(id));
-  
-  if (!user) {
-    return res.status(404).json({ 
-      success: false, 
-      error: "User not found" 
-    });
-  }
-  
-  if (body.name) user.name = body.name;
-  if (body.email) user.email = body.email;
-  
-  res.json({ success: true, data: user });
-});
-
-// DELETE /api/users/:id - Delete user
-app.delete("/api/users/:id", ({ req, res }) => {
-  const { id } = req.params;
-  const index = users.findIndex(u => u.id === Number(id));
-  
-  if (index === -1) {
-    return res.status(404).json({ 
-      success: false, 
-      error: "User not found" 
-    });
-  }
-  
-  users.splice(index, 1);
-  
-  res.json({ 
-    success: true, 
-    message: "User deleted successfully" 
-    });
-});
-
-// Start the server
-await app.listen();
-```
-
-## Step 3: Create Entry Point (TypeScript only) 🖥️
-
-<Callout type="info">
-For JavaScript, you already created the complete server in Step 2. For TypeScript with decorators, you need a separate entry point.
+<Callout type="warn">
+**Important:** Never commit `.env` files with sensitive data! Add it to `.gitignore`.
 </Callout>
 
-### TypeScript
+### 🔍 Debugging in VS Code
 
-Create `src/index.ts`:
+Configure debugging in VS Code by creating `.vscode/launch.json`:
 
-```typescript title="src/index.ts"
-import { AzuraClient } from "azurajs";
-import { applyDecorators } from "azurajs/decorators";
-import { createLoggingMiddleware } from "azurajs/middleware";
-import { UserController } from "./controllers/UserController";
-
-// Create the application instance
-const app = new AzuraClient();
-
-// Add logging middleware
-const logger = createLoggingMiddleware(app.getConfig());
-app.use(logger);
-
-// Register controllers
-applyDecorators(app, [UserController]);
-
-// Start the server
-await app.listen();
-```
-
-### JavaScript
-
-Your server is already complete in `src/index.js` from Step 2!
-
-## Step 4: Run Your Server 🏃
-
-### TypeScript
-
-Run your application:
-
-```bash
-# With Bun (recommended)
-bun run src/index.ts
-
-# With Node.js and tsx
-npx tsx src/index.ts
-
-# Or add to package.json scripts
+```json title=".vscode/launch.json"
 {
-  "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts"
-  }
-}
-```
-
-### JavaScript
-
-Run your application:
-
-```bash
-# With Bun (recommended)
-bun run src/index.js
-
-# With Node.js
-node src/index.js
-
-# Or add to package.json scripts
-{
-  "scripts": {
-    "dev": "node --watch src/index.js",
-    "start": "node src/index.js"
-  }
-}
-```
-
-You should see:
-
-```
-[master] listening on http://localhost:3000
-```
-
-## Step 5: Test Your API 🧪
-
-Test your endpoints using curl, Postman, or any HTTP client:
-
-### Get all users
-
-```bash
-curl http://localhost:3000/api/users
-```
-
-Response:
-```json
-{
-  "success": true,
-  "data": [
-    { "id": 1, "name": "Alice", "email": "alice@example.com" },
-    { "id": 2, "name": "Bob", "email": "bob@example.com" }
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug AzuraJS",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "tsx",
+      "runtimeArgs": ["src/index.ts"],
+      "skipFiles": ["<node_internals>/**"],
+      "console": "integratedTerminal"
+    }
   ]
 }
 ```
 
-### Get user by ID
+---
 
-```bash
-curl http://localhost:3000/api/users/1
-```
+## 🆘 Need Help?
 
-### Create a new user
-
-```bash
-curl -X POST http://localhost:3000/api/users \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Charlie","email":"charlie@example.com"}'
-```
-
-### Update a user
-
-```bash
-curl -X PUT http://localhost:3000/api/users/1 \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Alice Smith"}'
-```
-
-### Delete a user
-
-```bash
-curl -X DELETE http://localhost:3000/api/users/2
-```
-
-## 🎉 Congratulations!
-
-You've just built a complete RESTful API with AzuraJS! Here's what you learned:
-
-### TypeScript
-
-- ✅ How to configure AzuraJS
-- ✅ How to create controllers with decorators
-- ✅ How to use parameter decorators (`@Body`, `@Param`, `@Res`)
-- ✅ How to register controllers with `applyDecorators`
-- ✅ How to start the server
-
-### JavaScript
-
-- ✅ How to configure AzuraJS
-- ✅ How to define routes with functional API
-- ✅ How to handle request parameters and body
-- ✅ How to use middleware
-- ✅ How to start the server
-
-## What's Next? 📚
-
-Now that you have a basic API running, explore more features:
-
-<Cards>
-  <Card title="Configuration" href="configuration" description="Deep dive into configuration options" />
-  <Card title="Controllers" href="controllers" description="Learn advanced controller patterns" />
-  <Card title="Validation" href="validation" description="Add request validation" />
-  <Card title="Middleware" href="middleware" description="Create custom middleware" />
-</Cards>
-
-## Pro Tips 💡
-
-<Callout type="tip">
-  **Reload**: Use `tsx watch` or `bun --watch` for automatic server restart during development
+<Callout type="info" title="📚 Community Resources">
+- 🐛 **Bugs?** [Report on GitHub Issues](https://github.com/0xviny/azurajs/issues)
+- 💬 **Questions?** [Ask in Discussions](https://github.com/0xviny/azurajs/discussions)
+- 📖 **Examples:** [See official examples](https://github.com/0xviny/azurajs/tree/main/examples)
+- ⭐ **Like it?** [Give a star on GitHub](https://github.com/0xviny/azurajs)
 </Callout>
 
-<Callout type="tip">
-  **Multiple Controllers**: You can register multiple controllers at once:
-  ```typescript
-  applyDecorators(app, [UserController, PostController, AuthController]);
-  ```
-</Callout>
+---
 
-<Callout type="tip">
-  **Environment Variables**: Use `process.env` in your config file for production settings
-</Callout>
+**Ready to build something amazing?** Keep exploring the documentation and turn your ideas into powerful APIs! 🚀

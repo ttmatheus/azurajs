@@ -1,12 +1,61 @@
 ---
 title: Error Handling
-description: Handle errors gracefully in AzuraJS
+description: Complete guide to handling errors gracefully and building robust APIs in AzuraJS
 icon: TriangleAlert
 ---
 
 # Error Handling 🚨
 
-AzuraJS provides powerful tools for handling errors consistently and gracefully.
+Robust error handling is the foundation of production-ready applications. AzuraJS provides powerful tools and patterns for handling errors consistently, logging them appropriately, and providing meaningful feedback to clients.
+
+## Error Handling Philosophy 🎯
+
+### Why Proper Error Handling Matters
+
+1. **User Experience**: Clear, helpful error messages guide users to fix issues
+2. **Security**: Never expose internal details, stack traces, or sensitive data
+3. **Debugging**: Comprehensive logging helps track down production issues
+4. **Monitoring**: Structured errors enable effective application monitoring
+5. **Reliability**: Graceful degradation keeps your application running
+
+### Error Handling Principles
+
+<Callout type="tip">
+**Fail Fast, Fail Gracefully**: Detect errors early but handle them elegantly to prevent cascading failures.
+</Callout>
+
+<Callout type="warn">
+**Security First**: Never expose sensitive information like database queries, API keys, or file paths in error messages sent to clients.
+</Callout>
+
+<Callout type="info">
+**Consistent Format**: Use a standard error response structure across your entire API for easier client-side handling.
+</Callout>
+
+## Error Types in Web Applications 🗂️
+
+### 1. Client Errors (4xx)
+Caused by invalid input or requests from the client.
+
+| Code | Type | Description | Example |
+|------|------|-------------|---------|
+| 400 | Bad Request | Invalid syntax or data | Missing required field |
+| 401 | Unauthorized | Authentication required | No token provided |
+| 403 | Forbidden | Authenticated but no permission | Regular user accessing admin |
+| 404 | Not Found | Resource doesn't exist | User ID not in database |
+| 409 | Conflict | Request conflicts with current state | Email already registered |
+| 422 | Unprocessable Entity | Valid syntax but semantic errors | Age cannot be negative |
+| 429 | Too Many Requests | Rate limit exceeded | More than 100 req/min |
+
+### 2. Server Errors (5xx)
+Caused by issues on the server side.
+
+| Code | Type | Description | Example |
+|------|------|-------------|---------|
+| 500 | Internal Server Error | Unexpected server error | Unhandled exception |
+| 502 | Bad Gateway | Invalid response from upstream | External API timeout |
+| 503 | Service Unavailable | Server temporarily down | Database connection lost |
+| 504 | Gateway Timeout | Upstream didn't respond in time | Slow external service |
 
 ## HttpError Class 💥
 
@@ -540,6 +589,319 @@ async getUsers(@Res() res: ResponseServer) {
     }
     throw error;
   }
+}
+```
+
+## Production-Ready Error Response Format 📋
+
+### Standardized Error Structure
+
+```typescript
+interface ApiErrorResponse {
+  success: false;
+  error: {
+    code: string;           // Machine-readable error code
+    message: string;        // Human-readable message
+    statusCode: number;     // HTTP status code
+    timestamp: string;      // ISO 8601 timestamp
+    path: string;           // Request path
+    requestId?: string;     // For tracking across services
+    details?: any;          // Additional context (dev only)
+  };
+}
+
+interface ApiSuccessResponse<T> {
+  success: true;
+  data: T;
+  metadata?: {
+    page?: number;
+    limit?: number;
+    total?: number;
+  };
+}
+
+type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
+```
+
+### Implementation
+
+```typescript
+function errorHandler(
+  error: any,
+  req: RequestServer,
+  res: ResponseServer,
+  next: () => void
+) {
+  const statusCode = error instanceof HttpError ? error.statusCode : 500;
+  const requestId = req.headers["x-request-id"] as string || generateId();
+  
+  const errorResponse: ApiErrorResponse = {
+    success: false,
+    error: {
+      code: error.name || "INTERNAL_ERROR",
+      message: error.message || "An unexpected error occurred",
+      statusCode,
+      timestamp: new Date().toISOString(),
+      path: req.url,
+      requestId
+    }
+  };
+  
+  // Add details in development
+  if (process.env.NODE_ENV === "development") {
+    errorResponse.error.details = {
+      stack: error.stack,
+      ...error
+    };
+  }
+  
+  // Log error
+  Logger.error("Request error", {
+    ...errorResponse.error,
+    ip: req.ip,
+    userAgent: req.headers["user-agent"]
+  });
+  
+  res.status(statusCode).json(errorResponse);
+}
+```
+
+## Error Recovery Strategies 🔄
+
+### Retry Logic with Exponential Backoff
+
+```typescript
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelay = 1000
+): Promise<T> {
+  let lastError: any;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      
+      // Don't retry client errors
+      if (error instanceof HttpError && error.statusCode < 500) {
+        throw error;
+      }
+      
+      // Don't retry on last attempt
+      if (attempt === maxRetries - 1) {
+        break;
+      }
+      
+      // Exponential backoff: 1s, 2s, 4s, 8s...
+      const delay = baseDelay * Math.pow(2, attempt);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      Logger.info(`Retrying request (attempt ${attempt + 2}/${maxRetries})`);
+    }
+  }
+  
+  throw lastError;
+}
+
+// Usage
+@Get("/external-data")
+async getExternalData(@Res() res: ResponseServer) {
+  try {
+    const data = await retryWithBackoff(async () => {
+      const response = await fetch("https://api.example.com/data");
+      if (!response.ok) throw new Error("External API error");
+      return response.json();
+    });
+    
+    res.json({ data });
+  } catch (error) {
+    throw new HttpError(503, "External service unavailable");
+  }
+}
+```
+
+### Graceful Degradation
+
+```typescript
+@Get("/dashboard")
+async getDashboard(@Res() res: ResponseServer) {
+  const dashboard: any = {
+    status: "ok"
+  };
+  
+  // Try to fetch user stats
+  try {
+    dashboard.stats = await getUserStats();
+  } catch (error) {
+    Logger.warn("Failed to load stats", error);
+    dashboard.stats = null;  // Degrade gracefully
+    dashboard.warnings = ["Stats temporarily unavailable"];
+  }
+  
+  // Try to fetch notifications
+  try {
+    dashboard.notifications = await getNotifications();
+  } catch (error) {
+    Logger.warn("Failed to load notifications", error);
+    dashboard.notifications = [];  // Empty array as fallback
+  }
+  
+  // Return partial data rather than complete failure
+  res.json(dashboard);
+}
+```
+
+## Error Monitoring Integration 📡
+
+### Sentry Integration (Production-Grade)
+
+```typescript
+import * as Sentry from "@sentry/node";
+import { ProfilingIntegration } from "@sentry/profiling-node";
+
+// Initialize Sentry
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV,
+  tracesSampleRate: 1.0,
+  profilesSampleRate: 1.0,
+  integrations: [
+    new ProfilingIntegration(),
+  ],
+  beforeSend(event, hint) {
+    // Don't send 4xx errors to Sentry
+    const error = hint.originalException;
+    if (error instanceof HttpError && error.statusCode < 500) {
+      return null;
+    }
+    return event;
+  }
+});
+
+function errorHandler(
+  error: any,
+  req: RequestServer,
+  res: ResponseServer,
+  next: () => void
+) {
+  // Add context to Sentry
+  Sentry.setContext("request", {
+    method: req.method,
+    url: req.url,
+    headers: req.headers,
+    ip: req.ip
+  });
+  
+  // Add user context if available
+  if ((req as any).user) {
+    Sentry.setUser({
+      id: (req as any).user.id,
+      email: (req as any).user.email
+    });
+  }
+  
+  // Capture exception
+  if (!(error instanceof HttpError) || error.statusCode >= 500) {
+    Sentry.captureException(error);
+  }
+  
+  // Send response
+  const statusCode = error instanceof HttpError ? error.statusCode : 500;
+  res.status(statusCode).json({
+    error: {
+      message: error.message,
+      code: error.name,
+      statusCode
+    }
+  });
+}
+```
+
+### Custom Error Tracking
+
+```typescript
+interface ErrorLog {
+  timestamp: Date;
+  error: string;
+  stack?: string;
+  statusCode: number;
+  path: string;
+  method: string;
+  ip: string;
+  userId?: string;
+}
+
+class ErrorTracker {
+  private errors: ErrorLog[] = [];
+  private readonly maxSize = 1000;
+  
+  track(error: any, req: RequestServer) {
+    const log: ErrorLog = {
+      timestamp: new Date(),
+      error: error.message,
+      stack: error.stack,
+      statusCode: error instanceof HttpError ? error.statusCode : 500,
+      path: req.url,
+      method: req.method,
+      ip: req.ip || "unknown",
+      userId: (req as any).user?.id
+    };
+    
+    this.errors.push(log);
+    
+    // Keep only recent errors
+    if (this.errors.length > this.maxSize) {
+      this.errors.shift();
+    }
+    
+    // Alert on repeated errors
+    this.checkForPatterns(log);
+  }
+  
+  private checkForPatterns(log: ErrorLog) {
+    const recentErrors = this.errors.filter(e => 
+      Date.now() - e.timestamp.getTime() < 60000 // Last minute
+    );
+    
+    // Alert if same error occurs 10+ times in 1 minute
+    const sameErrors = recentErrors.filter(e => 
+      e.error === log.error && e.path === log.path
+    );
+    
+    if (sameErrors.length >= 10) {
+      Logger.critical("Error spike detected", {
+        error: log.error,
+        path: log.path,
+        count: sameErrors.length
+      });
+      
+      // Send alert to ops team
+      this.sendAlert(log, sameErrors.length);
+    }
+  }
+  
+  private sendAlert(log: ErrorLog, count: number) {
+    // Implement alerting (Slack, email, PagerDuty, etc.)
+  }
+  
+  getRecentErrors(limit = 100): ErrorLog[] {
+    return this.errors.slice(-limit);
+  }
+}
+
+const errorTracker = new ErrorTracker();
+
+function errorHandler(
+  error: any,
+  req: RequestServer,
+  res: ResponseServer,
+  next: () => void
+) {
+  errorTracker.track(error, req);
+  
+  // ... rest of error handling
 }
 ```
 

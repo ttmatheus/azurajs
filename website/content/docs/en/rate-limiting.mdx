@@ -1,12 +1,76 @@
 ---
 title: Rate Limiting
-description: Protect your API from abuse
+description: Complete guide to protecting your API from abuse with rate limiting strategies
 icon: Shield
 ---
 
 # Rate Limiting 🛡️
 
-Protect your API from abuse and DDoS attacks with rate limiting.
+Rate limiting is a critical security practice that protects your API from abuse, DDoS attacks, and excessive resource consumption by limiting the number of requests a client can make within a specific time window.
+
+## Why Rate Limiting Matters 🎯
+
+### Protection Against Attacks
+- **DDoS Attacks**: Prevent distributed denial-of-service attacks that overwhelm your servers
+- **Brute Force**: Limit login attempts to prevent password guessing attacks
+- **API Abuse**: Stop malicious actors from scraping or overwhelming your endpoints
+
+### Resource Management
+- **Fair Usage**: Ensure all users get fair access to your API resources
+- **Cost Control**: Reduce infrastructure costs by preventing excessive API calls
+- **Performance**: Maintain consistent response times for all users
+
+### Business Goals
+- **Tiered Access**: Implement different limits for free, premium, and enterprise users
+- **Monetization**: Encourage upgrades by offering higher limits in paid tiers
+- **SLA Compliance**: Meet service level agreements by preventing resource exhaustion
+
+## Rate Limiting Strategies 📊
+
+### 1. Fixed Window
+Simple counter that resets at fixed intervals.
+
+**Pros**: Easy to implement, predictable
+**Cons**: Allows burst at window boundaries
+
+```typescript
+// 100 requests per hour window
+// Window: 12:00-13:00, 13:00-14:00, etc.
+```
+
+### 2. Sliding Window
+More accurate, considers rolling time period.
+
+**Pros**: Prevents boundary bursts, more fair
+**Cons**: More complex, requires timestamp tracking
+
+```typescript
+// 100 requests in any 60-minute period
+// Constantly moving window
+```
+
+### 3. Token Bucket
+Tokens regenerate at a fixed rate.
+
+**Pros**: Allows controlled bursts, flexible
+**Cons**: More complex algorithm
+
+```typescript
+// Bucket with 100 tokens
+// Refills at 10 tokens/minute
+// Each request costs 1 token
+```
+
+### 4. Leaky Bucket
+Requests processed at a constant rate.
+
+**Pros**: Smooth traffic flow, prevents spikes
+**Cons**: May delay legitimate requests
+
+```typescript
+// Queue processes 10 requests/second
+// Extra requests wait or get rejected
+```
 
 ## Built-in Rate Limit Plugin 📦
 
@@ -547,6 +611,198 @@ export function createRateLimiterWithBypass(
     await limiter(req, res, next);
   };
 }
+```
+
+## Monitoring and Analytics 📊
+
+### Track Rate Limit Hits
+
+```typescript
+import { Logger } from "azurajs/logger";
+
+function createRateLimiterWithMonitoring(
+  limit: number,
+  windowMs: number
+): RequestHandler {
+  const store = new Map<string, RateLimitStore>();
+  
+  return async (req, res, next) => {
+    const ip = req.socket.remoteAddress || "unknown";
+    const now = Date.now();
+    
+    let record = store.get(ip);
+    
+    if (!record || now > record.resetTime) {
+      record = { count: 1, resetTime: now + windowMs };
+      store.set(ip, record);
+      await next();
+      return;
+    }
+    
+    record.count++;
+    
+    if (record.count > limit) {
+      // Log rate limit hit for monitoring
+      Logger.warn("Rate limit exceeded", {
+        ip,
+        path: req.url,
+        method: req.method,
+        count: record.count,
+        limit,
+        timestamp: new Date().toISOString()
+      });
+      
+      res.status(429).json({
+        error: "Too many requests",
+        retryAfter: Math.ceil((record.resetTime - now) / 1000)
+      });
+      return;
+    }
+    
+    await next();
+  };
+}
+```
+
+### Metrics Collection
+
+```typescript
+interface RateLimitMetrics {
+  totalRequests: number;
+  blockedRequests: number;
+  topOffenders: Map<string, number>;
+}
+
+const metrics: RateLimitMetrics = {
+  totalRequests: 0,
+  blockedRequests: 0,
+  topOffenders: new Map()
+};
+
+function updateMetrics(ip: string, blocked: boolean) {
+  metrics.totalRequests++;
+  if (blocked) {
+    metrics.blockedRequests++;
+    const count = metrics.topOffenders.get(ip) || 0;
+    metrics.topOffenders.set(ip, count + 1);
+  }
+}
+
+// Expose metrics endpoint
+@Get("/metrics/rate-limits")
+getRateLimitMetrics(@Res() res: ResponseServer) {
+  const topOffenders = Array.from(metrics.topOffenders.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+  
+  res.json({
+    totalRequests: metrics.totalRequests,
+    blockedRequests: metrics.blockedRequests,
+    blockRate: (metrics.blockedRequests / metrics.totalRequests * 100).toFixed(2) + '%',
+    topOffenders: Object.fromEntries(topOffenders)
+  });
+}
+```
+
+## Testing Rate Limits 🧪
+
+### Manual Testing
+
+```bash
+# Test with curl
+for i in {1..150}; do
+  curl -w "\\n%{http_code}" https://api.example.com/test
+  sleep 0.1
+done
+
+# Should see:
+# 200 (requests 1-100)
+# 429 (requests 101+)
+```
+
+### Automated Testing
+
+```typescript
+import { describe, it, expect } from "@jest/globals";
+
+describe("Rate Limiting", () => {
+  it("should allow requests under limit", async () => {
+    for (let i = 0; i < 10; i++) {
+      const response = await fetch("http://localhost:3000/api/test");
+      expect(response.status).toBe(200);
+    }
+  });
+  
+  it("should block requests over limit", async () => {
+    // Make 100 requests to hit limit
+    for (let i = 0; i < 100; i++) {
+      await fetch("http://localhost:3000/api/test");
+    }
+    
+    // Next request should be blocked
+    const response = await fetch("http://localhost:3000/api/test");
+    expect(response.status).toBe(429);
+    
+    // Check headers
+    expect(response.headers.get("X-RateLimit-Remaining")).toBe("0");
+    expect(response.headers.get("Retry-After")).toBeTruthy();
+  });
+  
+  it("should reset after time window", async () => {
+    // Hit limit
+    for (let i = 0; i < 100; i++) {
+      await fetch("http://localhost:3000/api/test");
+    }
+    
+    // Wait for window to reset (e.g., 60 seconds)
+    await new Promise(resolve => setTimeout(resolve, 61000));
+    
+    // Should work again
+    const response = await fetch("http://localhost:3000/api/test");
+    expect(response.status).toBe(200);
+  });
+});
+```
+
+## Dynamic Rate Limits Based on Load 🎚️
+
+```typescript
+interface SystemLoad {
+  cpu: number;
+  memory: number;
+}
+
+function getSystemLoad(): SystemLoad {
+  // Simplified - use actual monitoring tools in production
+  return {
+    cpu: Math.random() * 100,
+    memory: Math.random() * 100
+  };
+}
+
+function createAdaptiveRateLimiter(
+  baseLimit: number,
+  windowMs: number
+): RequestHandler {
+  return async (req, res, next) => {
+    const load = getSystemLoad();
+    
+    // Reduce limit when system is under stress
+    let adjustedLimit = baseLimit;
+    
+    if (load.cpu > 80 || load.memory > 80) {
+      adjustedLimit = Math.floor(baseLimit * 0.5);  // Reduce to 50%
+    } else if (load.cpu > 60 || load.memory > 60) {
+      adjustedLimit = Math.floor(baseLimit * 0.75);  // Reduce to 75%
+    }
+    
+    // Apply rate limiting with adjusted limit
+    const limiter = createRateLimiter(adjustedLimit, windowMs);
+    await limiter(req, res, next);
+  };
+}
+
+app.use(createAdaptiveRateLimiter(1000, 60000));
 ```
 
 ## Best Practices ✨

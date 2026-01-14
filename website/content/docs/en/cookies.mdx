@@ -1,12 +1,12 @@
 ---
 title: Cookies
-description: Advanced cookie management with signing, encryption, and sessions
+description: Complete cookie management guide - security, authentication, sessions, GDPR compliance, and best practices
 icon: Cookie
 ---
 
 # Cookies 🍪
 
-AzuraJS provides a powerful cookie management system with signing, encryption, and session support - similar to Express but with more features.
+AzuraJS provides a powerful and secure cookie management system with signing, encryption, session support, and GDPR-compliant features - going beyond Express with more security and flexibility.
 
 ## Quick Start 🚀
 
@@ -24,11 +24,171 @@ const cookie = jar.set('user_id', '123', {
 res.setHeader('Set-Cookie', cookie);
 ```
 
-## CookieJar 🫙
+## How Cookies Work 📚
 
-Advanced cookie manager with signing and encryption support.
+### The Cookie Lifecycle
 
-### Basic Usage
+```
+┌─────────────┐                           ┌─────────────┐
+│   Browser   │                           │   Server    │
+└──────┬──────┘                           └──────┬──────┘
+       │                                         │
+       │ 1. Initial Request                      │
+       │────────────────────────────────────────>│
+       │                                         │
+       │ 2. Response + Set-Cookie Header         │
+       │<────────────────────────────────────────│
+       │ (Browser stores cookie)                 │
+       │                                         │
+       │ 3. Subsequent Requests + Cookie         │
+       │────────────────────────────────────────>│
+       │ (Cookie automatically sent)             │
+       │                                         │
+       │ 4. Response (uses cookie data)          │
+       │<────────────────────────────────────────│
+       │                                         │
+```
+
+### What Are Cookies?
+
+Cookies are small pieces of data (max 4KB) that:
+- **Stored on client side** - Browser stores cookies per domain
+- **Sent automatically** - Browser sends cookies with every request to the domain
+- **Can expire** - Set expiration dates or session-only lifetime
+- **Domain-scoped** - Only sent to the domain that set them
+- **Path-scoped** - Can be limited to specific URL paths
+
+**Common Use Cases:**
+- 🔐 **Authentication** - Store session IDs or tokens
+- 🎨 **Preferences** - Remember user settings (theme, language)
+- 🛒 **Shopping Carts** - Track items before checkout
+- 📊 **Analytics** - Track user behavior
+- 🎯 **Marketing** - Show targeted content
+
+## Cookie Security Explained 🔒
+
+### Security Flags Deep Dive
+
+#### httpOnly Flag
+
+**Purpose**: Prevent JavaScript access to cookies
+
+```typescript
+jar.set('session_id', 'abc123', {
+  httpOnly: true  // ✅ JavaScript CANNOT access
+});
+
+// In browser console:
+document.cookie;  // Won't see httpOnly cookies
+```
+
+**Why it matters**: Protects against XSS (Cross-Site Scripting) attacks. Even if attacker injects malicious JavaScript, they cannot steal httpOnly cookies.
+
+**When to use**:
+- ✅ **Always** for authentication tokens
+- ✅ **Always** for session IDs
+- ❌ Never for data that JavaScript needs (like theme preferences)
+
+#### secure Flag
+
+**Purpose**: Only send cookies over HTTPS
+
+```typescript
+jar.set('session_id', 'abc123', {
+  secure: true  // Only sent over HTTPS
+});
+```
+
+**Why it matters**: Prevents man-in-the-middle attacks. Cookies sent over HTTP can be intercepted.
+
+**When to use**:
+- ✅ **Always** in production
+- ✅ For any sensitive data
+- ⚠️ Set to `false` only in development (localhost)
+
+```typescript
+const cookieOptions = {
+  secure: process.env.NODE_ENV === 'production'  // Auto-detect environment
+};
+```
+
+#### sameSite Flag
+
+**Purpose**: Control when cookies are sent in cross-site requests
+
+```typescript
+// Three options:
+
+// 1. Strict - Maximum protection
+jar.set('session_id', 'abc123', {
+  sameSite: 'strict'  // Never sent on cross-site requests
+});
+
+// 2. Lax - Balanced (default)
+jar.set('session_id', 'abc123', {
+  sameSite: 'lax'  // Sent on top-level navigation only
+});
+
+// 3. None - Least protection
+jar.set('tracking_id', 'xyz789', {
+  sameSite: 'none',
+  secure: true  // Required when sameSite=none
+});
+```
+
+**Comparison Table:**
+
+| sameSite | Link Click | Form POST | AJAX/Fetch | iframe |
+|----------|-----------|-----------|------------|---------|
+| `strict` | ❌ Not sent | ❌ Not sent | ❌ Not sent | ❌ Not sent |
+| `lax` | ✅ Sent | ❌ Not sent | ❌ Not sent | ❌ Not sent |
+| `none` | ✅ Sent | ✅ Sent | ✅ Sent | ✅ Sent |
+
+**When to use**:
+- ✅ `strict` - Authentication cookies for maximum security
+- ✅ `lax` - Session cookies that need to work with external links
+- ✅ `none` - Third-party integrations, embeds (requires `secure: true`)
+
+**Example Attack Prevented by sameSite:**
+
+```
+Without sameSite:
+1. User logs into bank.com (gets session cookie)
+2. User visits evil.com
+3. evil.com makes POST to bank.com/transfer
+4. Browser sends bank.com cookie → Money transferred! 💸
+
+With sameSite=strict:
+3. evil.com makes POST to bank.com/transfer
+4. Browser BLOCKS cookie → Transfer fails! ✅
+```
+
+### Complete Security Example
+
+```typescript
+const jar = new CookieJar('your-secret-key');
+
+// Maximum security for authentication
+app.post('/auth/login', (req, res) => {
+  const user = authenticateUser(req.body);
+  
+  const cookie = jar.set('session_id', user.sessionId, {
+    httpOnly: true,      // ✅ No JavaScript access
+    secure: true,        // ✅ HTTPS only
+    sameSite: 'strict',  // ✅ No cross-site requests
+    signed: true,        // ✅ Tamper-proof
+    maxAge: 3600,        // ✅ Limited lifetime (1 hour)
+    path: '/'            // ✅ Available site-wide
+  });
+  
+  res.setHeader('Set-Cookie', cookie);
+  res.json({ message: 'Logged in securely' });
+});
+```
+
+## Reading and Writing Cookies 📖
+
+### Basic Operations
 
 ```typescript
 import { CookieJar } from 'azurajs/cookies';
@@ -36,7 +196,7 @@ import { CookieJar } from 'azurajs/cookies';
 const jar = new CookieJar();
 
 // Set a cookie
-app.get('/set', (req, res) => {
+app.get('/set-cookie', (req, res) => {
   const cookie = jar.set('username', 'john_doe', {
     maxAge: 86400, // 24 hours
     httpOnly: true,
@@ -49,33 +209,157 @@ app.get('/set', (req, res) => {
 });
 
 // Get a cookie
-app.get('/get', (req, res) => {
+app.get('/get-cookie', (req, res) => {
   const username = jar.get('username');
+  
+  if (!username) {
+    return res.status(404).json({ error: 'Cookie not found' });
+  }
+  
   res.json({ username });
 });
 
 // Delete a cookie
-app.get('/delete', (req, res) => {
+app.get('/delete-cookie', (req, res) => {
   const cookie = jar.delete('username');
   res.setHeader('Set-Cookie', cookie);
   res.json({ message: 'Cookie deleted' });
 });
+
+// Check if cookie exists
+app.get('/has-cookie', (req, res) => {
+  const exists = jar.has('username');
+  res.json({ exists });
+});
+
+// Get all cookies
+app.get('/all-cookies', (req, res) => {
+  const cookies = jar.all();
+  res.json({ cookies });
+});
 ```
 
-### Signed Cookies 🔏
-
-Protect against cookie tampering with signed cookies:
+### Multiple Cookies
 
 ```typescript
-// Create jar with secret
-const jar = new CookieJar('my-secret-key');
+app.post('/login', (req, res) => {
+  const user = authenticateUser(req.body);
+  
+  // Set multiple cookies
+  const cookies = [
+    jar.set('session_id', user.sessionId, {
+      httpOnly: true,
+      secure: true,
+      maxAge: 3600
+    }),
+    jar.set('user_id', user.id, {
+      httpOnly: true,
+      secure: true,
+      maxAge: 3600
+    }),
+    jar.set('theme', user.preferences.theme, {
+      maxAge: 31536000  // 1 year
+    })
+  ];
+  
+  res.setHeader('Set-Cookie', cookies);
+  res.json({ user });
+});
+```
+
+## Complete Cookie Options Table 📋
+
+```typescript
+interface CookieOptions {
+  domain?: string;           // Cookie domain
+  encode?: (value: string) => string;  // Custom encoder
+  expires?: Date;            // Expiration date
+  httpOnly?: boolean;        // HTTP only flag
+  maxAge?: number;           // Max age in seconds
+  path?: string;             // Cookie path
+  sameSite?: 'strict' | 'lax' | 'none';  // SameSite policy
+  secure?: boolean;          // Secure flag (HTTPS only)
+  signed?: boolean;          // Sign cookie
+  encrypted?: boolean;       // Encrypt cookie
+  priority?: 'low' | 'medium' | 'high';  // Priority (Chrome)
+}
+```
+
+### Option Details
+
+| Option | Type | Default | Description | Example |
+|--------|------|---------|-------------|---------|
+| `domain` | string | current domain | Cookie domain scope | `.example.com` |
+| `expires` | Date | - | Absolute expiration date | `new Date('2025-12-31')` |
+| `httpOnly` | boolean | `false` | Prevent JavaScript access | `true` |
+| `maxAge` | number | - | Lifetime in seconds (relative) | `3600` (1 hour) |
+| `path` | string | `/` | URL path scope | `/admin` |
+| `sameSite` | string | `lax` | Cross-site request policy | `strict` |
+| `secure` | boolean | `false` | HTTPS only | `true` |
+| `signed` | boolean | `false` | Add signature for tamper detection | `true` |
+| `encrypted` | boolean | `false` | Encrypt cookie value | `true` |
+| `priority` | string | - | Browser priority (Chrome only) | `high` |
+
+### Option Examples
+
+```typescript
+// Domain scope
+jar.set('data', 'value', {
+  domain: '.example.com'  // Available on *.example.com
+});
+
+// Path scope
+jar.set('admin_token', 'secret', {
+  path: '/admin'  // Only sent to /admin/* routes
+});
+
+// Expiration (absolute)
+jar.set('promo', 'code123', {
+  expires: new Date('2025-12-31')  // Expires on specific date
+});
+
+// Max age (relative)
+jar.set('session', 'abc', {
+  maxAge: 3600  // Expires in 1 hour from now
+});
+
+// Custom encoder
+jar.set('data', 'special chars!', {
+  encode: (value) => Buffer.from(value).toString('base64')
+});
+
+// Priority (Chrome)
+jar.set('critical_data', 'value', {
+  priority: 'high'  // Keep this cookie when storage is full
+});
+```
+
+## Signed Cookies 🔏
+
+**Purpose**: Detect cookie tampering
+
+### How Signing Works
+
+```
+1. Server creates cookie value: "user_id=123"
+2. Server generates signature: HMAC-SHA256(value, secret)
+3. Server sends: "user_id=123.signature"
+4. Client stores: "user_id=123.signature"
+5. Client sends back: "user_id=123.signature"
+6. Server verifies: signature matches? ✅ Valid : ❌ Tampered
+```
+
+### Implementation
+
+```typescript
+const jar = new CookieJar('my-secret-key-change-in-production');
 
 // Set signed cookie
 app.post('/auth/login', (req, res) => {
-  const userId = authenticateUser(req.body);
+  const user = authenticateUser(req.body);
   
-  const cookie = jar.set('auth_token', userId, {
-    signed: true,
+  const cookie = jar.set('user_id', user.id, {
+    signed: true,       // Enable signing
     httpOnly: true,
     secure: true,
     sameSite: 'strict',
@@ -87,16 +371,1255 @@ app.post('/auth/login', (req, res) => {
 });
 
 // Verify signed cookie
-app.get('/auth/verify', (req, res) => {
-  const authToken = jar.get('auth_token', true); // true = verify signature
+app.get('/auth/me', (req, res) => {
+  const userId = jar.get('user_id', true);  // true = verify signature
   
-  if (!authToken) {
-    return res.status(401).json({ error: 'Invalid token' });
+  if (!userId) {
+    return res.status(401).json({ 
+      error: 'Invalid or tampered cookie' 
+    });
   }
   
-  res.json({ userId: authToken, authenticated: true });
+  const user = getUserById(userId);
+  res.json({ user });
 });
 ```
+
+### When to Use Signed Cookies
+
+✅ **Use signed cookies when**:
+- Storing user IDs
+- Storing role/permission data
+- Storing any data used for authorization
+- Data that affects security if tampered
+
+❌ **Don't use signed cookies for**:
+- Public data (theme, language)
+- Data that doesn't affect security
+- Encrypted cookies (already secure)
+
+## Cookie-Based Authentication Flow 🔐
+
+### Complete Step-by-Step Example
+
+```typescript
+import { CookieJar, SessionManager, MemorySessionStore } from 'azurajs/cookies';
+import { randomUUID } from 'crypto';
+
+// Step 1: Setup
+const jar = new CookieJar('your-secret-key');
+const sessionManager = new SessionManager(new MemorySessionStore(), {
+  cookieName: 'azura.sid',
+  secret: 'session-secret-key',
+  cookieOptions: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 86400  // 24 hours
+  }
+});
+
+// Step 2: Login - Create Session
+app.post('/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  
+  // Validate credentials
+  const user = await validateCredentials(email, password);
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+  
+  // Create session
+  const { id, cookie } = await sessionManager.create({
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+    loginAt: new Date().toISOString(),
+    ip: req.ip
+  });
+  
+  // Set session cookie
+  res.setHeader('Set-Cookie', cookie);
+  
+  // Return user data (don't include password!)
+  res.json({
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role
+    },
+    sessionId: id
+  });
+});
+
+// Step 3: Authentication Middleware
+async function authenticateUser(req, res, next) {
+  const session = await sessionManager.get(req.cookies);
+  
+  if (!session) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  
+  // Attach session data to request
+  req.session = session.data;
+  req.sessionId = session.id;
+  
+  // Update last activity
+  await sessionManager.touch(session.id);
+  
+  next();
+}
+
+// Step 4: Protected Routes
+app.get('/api/dashboard', authenticateUser, (req, res) => {
+  res.json({
+    message: 'Welcome to your dashboard',
+    user: {
+      email: req.session.email,
+      role: req.session.role,
+      loginAt: req.session.loginAt
+    }
+  });
+});
+
+// Role-based authorization
+function requireRole(role) {
+  return (req, res, next) => {
+    if (req.session.role !== role) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+    next();
+  };
+}
+
+app.get('/api/admin', authenticateUser, requireRole('admin'), (req, res) => {
+  res.json({ message: 'Admin area' });
+});
+
+// Step 5: Logout - Destroy Session
+app.post('/auth/logout', async (req, res) => {
+  if (req.sessionId) {
+    const cookie = await sessionManager.destroy(req.sessionId);
+    res.setHeader('Set-Cookie', cookie);
+  }
+  
+  res.json({ message: 'Logged out successfully' });
+});
+
+// Step 6: Refresh Session
+app.post('/auth/refresh', authenticateUser, async (req, res) => {
+  // Update session data
+  await sessionManager.update(req.sessionId, {
+    ...req.session,
+    lastRefresh: new Date().toISOString()
+  });
+  
+  res.json({ message: 'Session refreshed' });
+});
+
+// Step 7: Get Current User
+app.get('/auth/me', authenticateUser, (req, res) => {
+  res.json({
+    user: {
+      userId: req.session.userId,
+      email: req.session.email,
+      role: req.session.role
+    }
+  });
+});
+```
+
+### Authentication Flow Diagram
+
+```
+1. Login Request
+   POST /auth/login
+   { email, password }
+          │
+          ▼
+   ┌─────────────────┐
+   │  Validate User  │
+   └────────┬────────┘
+          │ Valid
+          ▼
+   ┌─────────────────┐
+   │ Create Session  │
+   │  Store in DB    │
+   └────────┬────────┘
+          │
+          ▼
+   ┌─────────────────┐
+   │  Set Cookie     │
+   │  Response       │
+   └────────┬────────┘
+          │
+          ▼
+   Browser stores cookie
+   
+2. Authenticated Request
+   GET /api/dashboard
+   Cookie: azura.sid=abc123
+          │
+          ▼
+   ┌─────────────────┐
+   │ Read Cookie     │
+   └────────┬────────┘
+          │
+          ▼
+   ┌─────────────────┐
+   │ Load Session    │
+   │  from DB        │
+   └────────┬────────┘
+          │ Valid
+          ▼
+   ┌─────────────────┐
+   │ Process Request │
+   │  Send Response  │
+   └─────────────────┘
+
+3. Logout Request
+   POST /auth/logout
+   Cookie: azura.sid=abc123
+          │
+          ▼
+   ┌─────────────────┐
+   │ Delete Session  │
+   │  from DB        │
+   └────────┬────────┘
+          │
+          ▼
+   ┌─────────────────┐
+   │ Clear Cookie    │
+   │  Response       │
+   └─────────────────┘
+```
+
+## Session Management 💼
+
+### Basic Session Usage
+
+```typescript
+import { SessionManager, MemorySessionStore } from 'azurajs/cookies';
+
+const sessionManager = new SessionManager(new MemorySessionStore(), {
+  cookieName: 'azura.sid',
+  secret: 'session-secret-key',
+  cookieOptions: {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: 86400  // 24 hours
+  }
+});
+
+// Load session middleware
+app.use(async (req, res, next) => {
+  const session = await sessionManager.get(req.cookies);
+  
+  if (session) {
+    req.session = session.data;
+    req.sessionId = session.id;
+  }
+  
+  next();
+});
+```
+
+### Custom Session Store (Redis)
+
+```typescript
+import { SessionStore } from 'azurajs/cookies';
+import Redis from 'ioredis';
+
+class RedisSessionStore implements SessionStore {
+  private redis: Redis;
+  
+  constructor(redisClient: Redis) {
+    this.redis = redisClient;
+  }
+  
+  async get(id: string): Promise<any | undefined> {
+    const data = await this.redis.get(`session:${id}`);
+    return data ? JSON.parse(data) : undefined;
+  }
+  
+  async set(id: string, data: any, maxAge: number): Promise<void> {
+    await this.redis.set(
+      `session:${id}`,
+      JSON.stringify(data),
+      'PX',  // milliseconds
+      maxAge * 1000
+    );
+  }
+  
+  async destroy(id: string): Promise<void> {
+    await this.redis.del(`session:${id}`);
+  }
+  
+  async touch(id: string, maxAge: number): Promise<void> {
+    await this.redis.expire(`session:${id}`, maxAge);
+  }
+}
+
+// Use custom store
+const redisClient = new Redis();
+const sessionManager = new SessionManager(
+  new RedisSessionStore(redisClient),
+  {
+    cookieName: 'sid',
+    secret: 'secret',
+    cookieOptions: { httpOnly: true, secure: true }
+  }
+);
+```
+
+### Custom Session Store (MongoDB)
+
+```typescript
+import { SessionStore } from 'azurajs/cookies';
+import { MongoClient, Collection } from 'mongodb';
+
+interface SessionDocument {
+  _id: string;
+  data: any;
+  expiresAt: Date;
+}
+
+class MongoSessionStore implements SessionStore {
+  private collection: Collection<SessionDocument>;
+  
+  constructor(collection: Collection<SessionDocument>) {
+    this.collection = collection;
+    
+    // Create TTL index for auto-cleanup
+    this.collection.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+  }
+  
+  async get(id: string): Promise<any | undefined> {
+    const doc = await this.collection.findOne({ _id: id });
+    
+    if (!doc) return undefined;
+    if (doc.expiresAt < new Date()) {
+      await this.destroy(id);
+      return undefined;
+    }
+    
+    return doc.data;
+  }
+  
+  async set(id: string, data: any, maxAge: number): Promise<void> {
+    const expiresAt = new Date(Date.now() + maxAge * 1000);
+    
+    await this.collection.updateOne(
+      { _id: id },
+      {
+        $set: {
+          data,
+          expiresAt
+        }
+      },
+      { upsert: true }
+    );
+  }
+  
+  async destroy(id: string): Promise<void> {
+    await this.collection.deleteOne({ _id: id });
+  }
+  
+  async touch(id: string, maxAge: number): Promise<void> {
+    const expiresAt = new Date(Date.now() + maxAge * 1000);
+    await this.collection.updateOne(
+      { _id: id },
+      { $set: { expiresAt } }
+    );
+  }
+}
+
+// Setup
+const client = new MongoClient('mongodb://localhost:27017');
+await client.connect();
+const db = client.db('myapp');
+const sessions = db.collection<SessionDocument>('sessions');
+
+const sessionManager = new SessionManager(
+  new MongoSessionStore(sessions),
+  {
+    cookieName: 'sid',
+    secret: 'secret',
+    cookieOptions: { httpOnly: true, secure: true }
+  }
+);
+```
+
+## Security Best Practices 💎
+
+### 10+ Essential Security Practices
+
+#### 1. Always Use httpOnly for Auth Cookies
+
+```typescript
+// ❌ Bad - JavaScript can access
+jar.set('session_id', id, {
+  httpOnly: false
+});
+
+// ✅ Good - Protected from XSS
+jar.set('session_id', id, {
+  httpOnly: true
+});
+```
+
+#### 2. Enable secure in Production
+
+```typescript
+// ✅ Good - Environment-aware
+const cookieOptions = {
+  secure: process.env.NODE_ENV === 'production',
+  httpOnly: true,
+  sameSite: 'strict'
+};
+```
+
+#### 3. Use sameSite for CSRF Protection
+
+```typescript
+// ✅ Good - Maximum CSRF protection
+jar.set('session_id', id, {
+  sameSite: 'strict',  // or 'lax' if needed
+  httpOnly: true,
+  secure: true
+});
+```
+
+#### 4. Set Appropriate Expiration
+
+```typescript
+// ❌ Bad - Never expires
+jar.set('session_id', id, {});
+
+// ✅ Good - Limited lifetime
+jar.set('session_id', id, {
+  maxAge: 3600  // 1 hour
+});
+
+// ✅ Good - Longer for "remember me"
+jar.set('remember_token', token, {
+  maxAge: 30 * 24 * 3600  // 30 days
+});
+```
+
+#### 5. Sign Sensitive Cookies
+
+```typescript
+// ✅ Good - Detect tampering
+jar.set('user_role', 'admin', {
+  signed: true,
+  httpOnly: true,
+  secure: true
+});
+```
+
+#### 6. Encrypt PII (Personal Identifiable Information)
+
+```typescript
+// ✅ Good - Encrypt sensitive data
+jar.set('user_ssn', ssn, {
+  encrypted: true,
+  httpOnly: true,
+  secure: true,
+  signed: true
+});
+```
+
+#### 7. Use Secure Random for Session IDs
+
+```typescript
+import { randomBytes } from 'crypto';
+
+// ✅ Good - Cryptographically secure
+const sessionId = randomBytes(32).toString('hex');
+
+// ❌ Bad - Predictable
+const sessionId = Date.now().toString();
+```
+
+#### 8. Implement Session Rotation
+
+```typescript
+// Rotate session ID on privilege escalation
+app.post('/upgrade-to-premium', authenticateUser, async (req, res) => {
+  // Destroy old session
+  await sessionManager.destroy(req.sessionId);
+  
+  // Create new session with updated role
+  const { id, cookie } = await sessionManager.create({
+    ...req.session,
+    role: 'premium',
+    upgradedAt: new Date()
+  });
+  
+  res.setHeader('Set-Cookie', cookie);
+  res.json({ message: 'Upgraded!' });
+});
+```
+
+#### 9. Validate Cookie Values
+
+```typescript
+import { v } from 'azurajs/validators';
+
+const SessionSchema = v.object({
+  userId: v.string().uuid(),
+  role: v.enum(['user', 'admin', 'premium']),
+  expiresAt: v.number()
+});
+
+app.use(async (req, res, next) => {
+  const session = await sessionManager.get(req.cookies);
+  
+  if (session) {
+    const result = SessionSchema.safeParse(session.data);
+    
+    if (!result.success) {
+      // Invalid session data - destroy it
+      await sessionManager.destroy(session.id);
+      return res.status(401).json({ error: 'Invalid session' });
+    }
+    
+    req.session = result.data;
+  }
+  
+  next();
+});
+```
+
+#### 10. Implement Rate Limiting
+
+```typescript
+const loginAttempts = new Map<string, number>();
+
+app.post('/auth/login', (req, res) => {
+  const ip = req.ip;
+  const attempts = loginAttempts.get(ip) || 0;
+  
+  if (attempts >= 5) {
+    return res.status(429).json({ 
+      error: 'Too many login attempts. Try again in 15 minutes.' 
+    });
+  }
+  
+  const user = authenticateUser(req.body);
+  
+  if (!user) {
+    loginAttempts.set(ip, attempts + 1);
+    setTimeout(() => loginAttempts.delete(ip), 15 * 60 * 1000);
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+  
+  // Success - reset attempts
+  loginAttempts.delete(ip);
+  
+  // ... create session
+});
+```
+
+#### 11. Log Security Events
+
+```typescript
+import { createLogger } from 'winston';
+
+const securityLogger = createLogger({
+  // ... config
+});
+
+app.post('/auth/login', async (req, res) => {
+  const result = await attemptLogin(req.body);
+  
+  securityLogger.info('Login attempt', {
+    success: result.success,
+    email: req.body.email,
+    ip: req.ip,
+    userAgent: req.headers['user-agent'],
+    timestamp: new Date()
+  });
+  
+  // ... rest of login logic
+});
+```
+
+#### 12. Clean Up Expired Sessions
+
+```typescript
+// Run cleanup task periodically
+setInterval(async () => {
+  const now = Date.now();
+  const sessions = await getAllSessions();
+  
+  for (const session of sessions) {
+    if (session.expiresAt < now) {
+      await sessionManager.destroy(session.id);
+    }
+  }
+}, 60 * 60 * 1000);  // Every hour
+```
+
+## GDPR Considerations 🇪🇺
+
+### Cookie Consent
+
+```typescript
+app.get('/', (req, res) => {
+  const consent = jar.get('cookie_consent');
+  
+  if (!consent) {
+    // Show cookie banner
+    return res.send(`
+      <div class="cookie-banner">
+        <p>We use cookies to improve your experience.</p>
+        <button onclick="acceptCookies()">Accept All</button>
+        <button onclick="rejectCookies()">Reject Non-Essential</button>
+      </div>
+    `);
+  }
+  
+  // User has consented
+  if (consent === 'accepted') {
+    // Set analytics cookies
+    jar.set('analytics_id', generateId(), { maxAge: 31536000 });
+  }
+  
+  res.send('Welcome!');
+});
+
+app.post('/api/cookie-consent', (req, res) => {
+  const { consent } = req.body;  // 'accepted' or 'rejected'
+  
+  const cookie = jar.set('cookie_consent', consent, {
+    maxAge: 365 * 24 * 3600  // 1 year
+  });
+  
+  res.setHeader('Set-Cookie', cookie);
+  res.json({ message: 'Consent recorded' });
+});
+```
+
+### Cookie Policy Page
+
+```typescript
+app.get('/cookie-policy', (req, res) => {
+  res.json({
+    essential: [
+      {
+        name: 'session_id',
+        purpose: 'User authentication',
+        duration: '24 hours',
+        type: 'essential'
+      }
+    ],
+    analytics: [
+      {
+        name: 'analytics_id',
+        purpose: 'Usage analytics',
+        duration: '1 year',
+        type: 'analytics',
+        provider: 'Google Analytics'
+      }
+    ]
+  });
+});
+```
+
+### Right to be Forgotten
+
+```typescript
+app.delete('/api/user/data', authenticateUser, async (req, res) => {
+  const userId = req.session.userId;
+  
+  // Delete user data
+  await deleteUserData(userId);
+  
+  // Delete session
+  await sessionManager.destroy(req.sessionId);
+  
+  // Clear all cookies
+  const cookies = [
+    jar.delete('session_id'),
+    jar.delete('analytics_id'),
+    jar.delete('preferences')
+  ];
+  
+  res.setHeader('Set-Cookie', cookies);
+  res.json({ message: 'All data deleted' });
+});
+```
+
+### Minimal Data Collection
+
+```typescript
+// ❌ Bad - Collecting unnecessary data
+const session = {
+  userId: user.id,
+  email: user.email,
+  phone: user.phone,
+  address: user.address,
+  creditCard: user.creditCard  // Never!
+};
+
+// ✅ Good - Minimal necessary data
+const session = {
+  userId: user.id,
+  role: user.role,
+  expiresAt: Date.now() + 3600000
+};
+```
+
+### Cookie Audit Log
+
+```typescript
+app.use((req, res, next) => {
+  const originalSetHeader = res.setHeader;
+  
+  res.setHeader = function(name, value) {
+    if (name.toLowerCase() === 'set-cookie') {
+      // Log cookie being set
+      auditLogger.info('Cookie set', {
+        cookie: typeof value === 'string' ? parseCookieName(value) : value.map(parseCookieName),
+        route: req.path,
+        timestamp: new Date()
+      });
+    }
+    
+    return originalSetHeader.call(this, name, value);
+  };
+  
+  next();
+});
+
+function parseCookieName(cookieString: string): string {
+  return cookieString.split('=')[0];
+}
+```
+
+## Troubleshooting 🔧
+
+### Issue: Cookies Not Being Set
+
+**Symptoms**: Cookie doesn't appear in browser
+
+**Possible Causes & Solutions**:
+
+```typescript
+// 1. Check secure flag in development
+// ❌ Problem
+jar.set('token', 'value', {
+  secure: true  // Won't work on localhost HTTP
+});
+
+// ✅ Solution
+jar.set('token', 'value', {
+  secure: process.env.NODE_ENV === 'production'
+});
+
+// 2. Check sameSite=none requires secure
+// ❌ Problem
+jar.set('token', 'value', {
+  sameSite: 'none'  // Must have secure: true
+});
+
+// ✅ Solution
+jar.set('token', 'value', {
+  sameSite: 'none',
+  secure: true
+});
+
+// 3. Check domain mismatch
+// ❌ Problem
+jar.set('token', 'value', {
+  domain: 'example.com'  // Won't work on localhost
+});
+
+// ✅ Solution
+jar.set('token', 'value', {
+  domain: process.env.NODE_ENV === 'production' ? '.example.com' : undefined
+});
+
+// 4. Check browser blocking third-party cookies
+// Solution: Use sameSite='lax' or 'strict' for first-party cookies
+```
+
+### Issue: Cookies Not Being Sent
+
+**Symptoms**: Cookie exists but not sent with requests
+
+**Possible Causes & Solutions**:
+
+```typescript
+// 1. Path mismatch
+// Cookie set with path: '/admin'
+// Request to: '/api/users' → Cookie not sent
+
+// ✅ Solution: Use path: '/' for site-wide cookies
+jar.set('token', 'value', {
+  path: '/'
+});
+
+// 2. Domain mismatch
+// Cookie domain: 'api.example.com'
+// Request to: 'www.example.com' → Cookie not sent
+
+// ✅ Solution: Use parent domain
+jar.set('token', 'value', {
+  domain: '.example.com'  // Works for all subdomains
+});
+
+// 3. Expired cookie
+// ✅ Solution: Check expiration
+const cookie = jar.get('token');
+if (!cookie) {
+  console.log('Cookie expired or not set');
+}
+```
+
+### Issue: Cookie Signature Invalid
+
+**Symptoms**: `jar.get(name, true)` returns `null`
+
+**Solution**:
+
+```typescript
+// Make sure secret key is consistent
+const SECRET = process.env.COOKIE_SECRET;
+
+// ❌ Bad - Different secrets
+const jar1 = new CookieJar('secret1');
+jar1.set('token', 'value', { signed: true });
+
+const jar2 = new CookieJar('secret2');
+jar2.get('token', true);  // Returns null - signatures don't match
+
+// ✅ Good - Same secret
+const jar1 = new CookieJar(SECRET);
+jar1.set('token', 'value', { signed: true });
+
+const jar2 = new CookieJar(SECRET);
+jar2.get('token', true);  // Works!
+```
+
+### Issue: Session Lost on Refresh
+
+**Causes & Solutions**:
+
+```typescript
+// 1. Session not persisted
+// ✅ Solution: Use persistent store (Redis/MongoDB)
+const sessionManager = new SessionManager(
+  new RedisSessionStore(redis),  // Not MemorySessionStore
+  { /* options */ }
+);
+
+// 2. Cookie expired
+// ✅ Solution: Increase maxAge
+cookieOptions: {
+  maxAge: 86400  // 24 hours instead of 3600 (1 hour)
+}
+
+// 3. Touch session on activity
+app.use(async (req, res, next) => {
+  if (req.sessionId) {
+    await sessionManager.touch(req.sessionId);  // Extend session
+  }
+  next();
+});
+```
+
+## Common Patterns 🎨
+
+### 1. Remember Me Functionality
+
+```typescript
+app.post('/auth/login', async (req, res) => {
+  const { email, password, rememberMe } = req.body;
+  const user = await authenticateUser(email, password);
+  
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+  
+  // Short-lived session
+  const sessionCookie = jar.set('session_id', user.sessionId, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'strict',
+    maxAge: 3600  // 1 hour
+  });
+  
+  const cookies = [sessionCookie];
+  
+  // Long-lived remember token (if requested)
+  if (rememberMe) {
+    const rememberToken = generateSecureToken();
+    await storeRememberToken(user.id, rememberToken);
+    
+    const rememberCookie = jar.set('remember_token', rememberToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      signed: true,
+      maxAge: 30 * 24 * 3600  // 30 days
+    });
+    
+    cookies.push(rememberCookie);
+  }
+  
+  res.setHeader('Set-Cookie', cookies);
+  res.json({ user });
+});
+
+// Remember me middleware
+app.use(async (req, res, next) => {
+  // Check session first
+  if (req.session) {
+    return next();
+  }
+  
+  // Try remember token
+  const rememberToken = jar.get('remember_token', true);
+  if (rememberToken) {
+    const userId = await validateRememberToken(rememberToken);
+    
+    if (userId) {
+      // Create new session
+      const user = await getUserById(userId);
+      const { id, cookie } = await sessionManager.create({
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        rememberedLogin: true
+      });
+      
+      res.setHeader('Set-Cookie', cookie);
+      req.session = { userId, email: user.email, role: user.role };
+    }
+  }
+  
+  next();
+});
+```
+
+### 2. Theme/Preference Storage
+
+```typescript
+app.post('/api/preferences', (req, res) => {
+  const { theme, language, timezone, fontSize } = req.body;
+  
+  const cookies = [
+    jar.set('pref_theme', theme, {
+      maxAge: 365 * 24 * 3600,  // 1 year
+      sameSite: 'lax'
+    }),
+    jar.set('pref_language', language, {
+      maxAge: 365 * 24 * 3600,
+      sameSite: 'lax'
+    }),
+    jar.set('pref_timezone', timezone, {
+      maxAge: 365 * 24 * 3600,
+      sameSite: 'lax'
+    }),
+    jar.set('pref_fontSize', fontSize, {
+      maxAge: 365 * 24 * 3600,
+      sameSite: 'lax'
+    })
+  ];
+  
+  res.setHeader('Set-Cookie', cookies);
+  res.json({ message: 'Preferences saved' });
+});
+
+// Apply preferences middleware
+app.use((req, res, next) => {
+  req.preferences = {
+    theme: jar.get('pref_theme') || 'light',
+    language: jar.get('pref_language') || 'en',
+    timezone: jar.get('pref_timezone') || 'UTC',
+    fontSize: jar.get('pref_fontSize') || 'medium'
+  };
+  next();
+});
+```
+
+### 3. Shopping Cart
+
+```typescript
+interface CartItem {
+  productId: string;
+  quantity: number;
+  price: number;
+}
+
+app.post('/api/cart/add', (req, res) => {
+  const { productId, quantity } = req.body;
+  
+  // Get existing cart
+  const cartCookie = jar.get('cart');
+  const cart: CartItem[] = cartCookie ? JSON.parse(cartCookie) : [];
+  
+  // Add or update item
+  const existingItem = cart.find(item => item.productId === productId);
+  if (existingItem) {
+    existingItem.quantity += quantity;
+  } else {
+    const product = getProduct(productId);
+    cart.push({
+      productId,
+      quantity,
+      price: product.price
+    });
+  }
+  
+  // Save cart
+  const cookie = jar.set('cart', JSON.stringify(cart), {
+    maxAge: 7 * 24 * 3600,  // 7 days
+    sameSite: 'lax'
+  });
+  
+  res.setHeader('Set-Cookie', cookie);
+  res.json({ cart, total: calculateTotal(cart) });
+});
+
+app.get('/api/cart', (req, res) => {
+  const cartCookie = jar.get('cart');
+  const cart: CartItem[] = cartCookie ? JSON.parse(cartCookie) : [];
+  
+  res.json({
+    cart,
+    total: calculateTotal(cart),
+    itemCount: cart.reduce((sum, item) => sum + item.quantity, 0)
+  });
+});
+
+app.delete('/api/cart', (req, res) => {
+  const cookie = jar.delete('cart');
+  res.setHeader('Set-Cookie', cookie);
+  res.json({ message: 'Cart cleared' });
+});
+```
+
+### 4. Flash Messages
+
+```typescript
+app.use((req, res, next) => {
+  // Get flash message
+  const flashCookie = jar.get('_flash');
+  if (flashCookie) {
+    req.flash = JSON.parse(decodeURIComponent(flashCookie));
+    
+    // Clear flash cookie
+    const clearCookie = jar.delete('_flash');
+    res.setHeader('Set-Cookie', clearCookie);
+  }
+  
+  // Helper to set flash
+  res.flash = function(type: string, message: string) {
+    const flashData = JSON.stringify({ type, message });
+    const cookie = jar.set('_flash', encodeURIComponent(flashData), {
+      httpOnly: true,
+      sameSite: 'lax'
+      // No maxAge - session only
+    });
+    this.setHeader('Set-Cookie', cookie);
+    return this;
+  };
+  
+  next();
+});
+
+// Usage
+app.post('/api/save', (req, res) => {
+  saveData(req.body);
+  res.flash('success', 'Data saved successfully!');
+  res.redirect('/dashboard');
+});
+
+app.get('/dashboard', (req, res) => {
+  res.json({
+    flash: req.flash || null,  // { type: 'success', message: 'Data saved successfully!' }
+    data: getDashboardData()
+  });
+});
+```
+
+### 5. CSRF Token Management
+
+```typescript
+import { randomBytes } from 'crypto';
+
+const csrfTokens = new Map<string, { token: string; expiresAt: number }>();
+
+// Generate CSRF token middleware
+app.use((req, res, next) => {
+  let csrfToken = jar.get('csrf_token');
+  
+  if (!csrfToken || !csrfTokens.has(csrfToken)) {
+    csrfToken = randomBytes(32).toString('hex');
+    csrfTokens.set(csrfToken, {
+      token: csrfToken,
+      expiresAt: Date.now() + 3600000  // 1 hour
+    });
+    
+    const cookie = jar.set('csrf_token', csrfToken, {
+      httpOnly: false,  // Needs to be accessible to JavaScript
+      secure: true,
+      sameSite: 'strict',
+      maxAge: 3600
+    });
+    
+    res.setHeader('Set-Cookie', cookie);
+  }
+  
+  req.csrfToken = csrfToken;
+  next();
+});
+
+// Verify CSRF token
+function verifyCsrfToken(req, res, next) {
+  const tokenFromRequest = req.header('x-csrf-token') || req.body._csrf;
+  const tokenFromCookie = jar.get('csrf_token');
+  
+  if (!tokenFromRequest || !tokenFromCookie || tokenFromRequest !== tokenFromCookie) {
+    return res.status(403).json({ error: 'Invalid CSRF token' });
+  }
+  
+  const tokenData = csrfTokens.get(tokenFromCookie);
+  if (!tokenData || tokenData.expiresAt < Date.now()) {
+    csrfTokens.delete(tokenFromCookie);
+    return res.status(403).json({ error: 'CSRF token expired' });
+  }
+  
+  next();
+}
+
+// Use on state-changing routes
+app.post('/api/transfer', verifyCsrfToken, (req, res) => {
+  // Safe from CSRF attacks
+  performTransfer(req.body);
+  res.json({ success: true });
+});
+
+// Cleanup expired tokens
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, data] of csrfTokens.entries()) {
+    if (data.expiresAt < now) {
+      csrfTokens.delete(token);
+    }
+  }
+}, 60000);  // Every minute
+```
+
+## Complete API Reference 📖
+
+### CookieJar
+
+```typescript
+class CookieJar {
+  constructor(secret?: string);
+  
+  set(name: string, value: string, options?: CookieOptions): string;
+  get(name: string, signed?: boolean, encrypted?: boolean): string | undefined;
+  delete(name: string, options?: Partial<CookieOptions>): string;
+  has(name: string): boolean;
+  all(): Record<string, string>;
+  clear(): void;
+}
+```
+
+### SessionManager
+
+```typescript
+class SessionManager {
+  constructor(store: SessionStore, options: SessionOptions);
+  
+  get(cookies: Record<string, string>): Promise<Session | undefined>;
+  create(data: any): Promise<{ id: string; cookie: string }>;
+  update(id: string, data: any): Promise<void>;
+  destroy(id: string): Promise<string>;
+  touch(id: string): Promise<void>;
+}
+
+interface SessionStore {
+  get(id: string): Promise<any | undefined>;
+  set(id: string, data: any, maxAge: number): Promise<void>;
+  destroy(id: string): Promise<void>;
+  touch(id: string, maxAge: number): Promise<void>;
+}
+
+interface SessionOptions {
+  cookieName: string;
+  secret: string;
+  cookieOptions: CookieOptions;
+}
+```
+
+### CookiePresets
+
+```typescript
+class CookiePresets {
+  static session(secure?: boolean): CookieOptions;      // 24 hours
+  static rememberMe(secure?: boolean): CookieOptions;   // 30 days
+  static tracking(secure?: boolean): CookieOptions;     // 1 year
+  static flash(secure?: boolean): CookieOptions;        // Session-only
+  static csrf(secure?: boolean): CookieOptions;         // 1 hour
+}
+```
+
+## Migration from Express 🔄
+
+```typescript
+// Express
+const cookieParser = require('cookie-parser');
+app.use(cookieParser('secret'));
+
+app.get('/set', (req, res) => {
+  res.cookie('name', 'value', {
+    signed: true,
+    httpOnly: true
+  });
+});
+
+app.get('/get', (req, res) => {
+  const value = req.signedCookies.name;
+  res.json({ value });
+});
+
+// AzuraJS - More powerful!
+import { CookieJar } from 'azurajs/cookies';
+const jar = new CookieJar('secret');
+
+app.get('/set', (req, res) => {
+  const cookie = jar.set('name', 'value', {
+    signed: true,
+    httpOnly: true,
+    encrypted: true  // ✅ Extra feature!
+  });
+  res.setHeader('Set-Cookie', cookie);
+});
+
+app.get('/get', (req, res) => {
+  const value = jar.get('name', true, true);  // signed & encrypted
+  res.json({ value });
+});
+```
+
+## Next Steps 📖
+
+- [**Middleware**](middleware) - Create authentication middleware with cookies
+- [**Error Handling**](error-handling) - Handle cookie and session errors
+- [**Security**](security) - Advanced security patterns
+
+---
+
+**Pro Tip**: Always audit your cookies regularly. Use browser DevTools → Application → Cookies to inspect what's being stored!
 
 ### Encrypted Cookies 🔐
 

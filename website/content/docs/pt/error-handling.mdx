@@ -1,12 +1,61 @@
 ---
-title: Error Handling
-description: Trate erros de forma elegante no AzuraJS
+title: Error Handling (Tratamento de Erros)
+description: Guia completo para tratar erros elegantemente e construir APIs robustas no AzuraJS
 icon: TriangleAlert
 ---
 
-# Error Handling 🚨
+# Error Handling (Tratamento de Erros) 🚨
 
-AzuraJS fornece ferramentas poderosas para tratar erros de forma consistente e elegante.
+O tratamento robusto de erros é a base de aplicações prontas para produção. AzuraJS fornece ferramentas e padrões poderosos para lidar com erros de forma consistente, registrá-los adequadamente e fornecer feedback significativo aos clientes.
+
+## Filosofia de Tratamento de Erros 🎯
+
+### Por que Tratamento Adequado de Erros é Importante
+
+1. **Experiência do Usuário**: Mensagens de erro claras e úteis guiam os usuários para corrigir problemas
+2. **Segurança**: Nunca exponha detalhes internos, stack traces ou dados sensíveis
+3. **Depuração**: Logging abrangente ajuda a rastrear problemas em produção
+4. **Monitoramento**: Erros estruturados permitem monitoramento efetivo da aplicação
+5. **Confiabilidade**: Degradação graciosa mantém sua aplicação funcionando
+
+### Princípios de Tratamento de Erros
+
+<Callout type="tip">
+**Falhe Rápido, Falhe com Elegância**: Detecte erros cedo, mas trate-os elegantemente para prevenir falhas em cascata.
+</Callout>
+
+<Callout type="warn">
+**Segurança em Primeiro Lugar**: Nunca exponha informações sensíveis como queries de banco de dados, API keys ou caminhos de arquivos em mensagens de erro enviadas aos clientes.
+</Callout>
+
+<Callout type="info">
+**Formato Consistente**: Use uma estrutura de resposta de erro padrão em toda sua API para facilitar o tratamento no lado do cliente.
+</Callout>
+
+## Tipos de Erros em Aplicações Web 🗂️
+
+### 1. Erros de Cliente (4xx)
+Causados por entrada ou requisições inválidas do cliente.
+
+| Código | Tipo | Descrição | Exemplo |
+|--------|------|-----------|---------|
+| 400 | Bad Request | Sintaxe ou dados inválidos | Campo obrigatório faltando |
+| 401 | Unauthorized | Autenticação necessária | Token não fornecido |
+| 403 | Forbidden | Autenticado mas sem permissão | Usuário comum acessando admin |
+| 404 | Not Found | Recurso não existe | ID de usuário não no banco |
+| 409 | Conflict | Requisição conflita com estado atual | Email já registrado |
+| 422 | Unprocessable Entity | Sintaxe válida mas erros semânticos | Idade não pode ser negativa |
+| 429 | Too Many Requests | Limite de taxa excedido | Mais de 100 req/min |
+
+### 2. Erros de Servidor (5xx)
+Causados por problemas no lado do servidor.
+
+| Código | Tipo | Descrição | Exemplo |
+|--------|------|-----------|---------|
+| 500 | Internal Server Error | Erro inesperado do servidor | Exceção não tratada |
+| 502 | Bad Gateway | Resposta inválida de upstream | Timeout de API externa |
+| 503 | Service Unavailable | Servidor temporariamente fora | Conexão com BD perdida |
+| 504 | Gateway Timeout | Upstream não respondeu a tempo | Serviço externo lento |
 
 ## Classe HttpError 💥
 
@@ -540,6 +589,319 @@ async getUsers(@Res() res: ResponseServer) {
     }
     throw error;
   }
+}
+```
+
+## Formato de Resposta de Erro Pronto para Produção 📋
+
+### Estrutura de Erro Padronizada
+
+```typescript
+interface ApiErrorResponse {
+  success: false;
+  error: {
+    code: string;           // Código de erro legível por máquina
+    message: string;        // Mensagem legível por humanos
+    statusCode: number;     // Código de status HTTP
+    timestamp: string;      // Timestamp ISO 8601
+    path: string;           // Caminho da requisição
+    requestId?: string;     // Para rastreamento entre serviços
+    details?: any;          // Contexto adicional (apenas dev)
+  };
+}
+
+interface ApiSuccessResponse<T> {
+  success: true;
+  data: T;
+  metadata?: {
+    page?: number;
+    limit?: number;
+    total?: number;
+  };
+}
+
+type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
+```
+
+### Implementação
+
+```typescript
+function errorHandler(
+  error: any,
+  req: RequestServer,
+  res: ResponseServer,
+  next: () => void
+) {
+  const statusCode = error instanceof HttpError ? error.statusCode : 500;
+  const requestId = req.headers["x-request-id"] as string || generateId();
+  
+  const errorResponse: ApiErrorResponse = {
+    success: false,
+    error: {
+      code: error.name || "INTERNAL_ERROR",
+      message: error.message || "Ocorreu um erro inesperado",
+      statusCode,
+      timestamp: new Date().toISOString(),
+      path: req.url,
+      requestId
+    }
+  };
+  
+  // Adicionar detalhes em desenvolvimento
+  if (process.env.NODE_ENV === "development") {
+    errorResponse.error.details = {
+      stack: error.stack,
+      ...error
+    };
+  }
+  
+  // Log do erro
+  Logger.error("Erro na requisição", {
+    ...errorResponse.error,
+    ip: req.ip,
+    userAgent: req.headers["user-agent"]
+  });
+  
+  res.status(statusCode).json(errorResponse);
+}
+```
+
+## Estratégias de Recuperação de Erros 🔄
+
+### Lógica de Retry com Exponential Backoff
+
+```typescript
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelay = 1000
+): Promise<T> {
+  let lastError: any;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      
+      // Não retentar erros de cliente
+      if (error instanceof HttpError && error.statusCode < 500) {
+        throw error;
+      }
+      
+      // Não retentar na última tentativa
+      if (attempt === maxRetries - 1) {
+        break;
+      }
+      
+      // Exponential backoff: 1s, 2s, 4s, 8s...
+      const delay = baseDelay * Math.pow(2, attempt);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      Logger.info(`Retentando requisição (tentativa ${attempt + 2}/${maxRetries})`);
+    }
+  }
+  
+  throw lastError;
+}
+
+// Uso
+@Get("/external-data")
+async getExternalData(@Res() res: ResponseServer) {
+  try {
+    const data = await retryWithBackoff(async () => {
+      const response = await fetch("https://api.example.com/data");
+      if (!response.ok) throw new Error("Erro na API externa");
+      return response.json();
+    });
+    
+    res.json({ data });
+  } catch (error) {
+    throw new HttpError(503, "Serviço externo indisponível");
+  }
+}
+```
+
+### Degradação Graciosa
+
+```typescript
+@Get("/dashboard")
+async getDashboard(@Res() res: ResponseServer) {
+  const dashboard: any = {
+    status: "ok"
+  };
+  
+  // Tentar buscar estatísticas do usuário
+  try {
+    dashboard.stats = await getUserStats();
+  } catch (error) {
+    Logger.warn("Falha ao carregar estatísticas", error);
+    dashboard.stats = null;  // Degradar graciosamente
+    dashboard.warnings = ["Estatísticas temporariamente indisponíveis"];
+  }
+  
+  // Tentar buscar notificações
+  try {
+    dashboard.notifications = await getNotifications();
+  } catch (error) {
+    Logger.warn("Falha ao carregar notificações", error);
+    dashboard.notifications = [];  // Array vazio como fallback
+  }
+  
+  // Retornar dados parciais ao invés de falha completa
+  res.json(dashboard);
+}
+```
+
+## Integração de Monitoramento de Erros 📡
+
+### Integração com Sentry (Nível de Produção)
+
+```typescript
+import * as Sentry from "@sentry/node";
+import { ProfilingIntegration } from "@sentry/profiling-node";
+
+// Inicializar Sentry
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV,
+  tracesSampleRate: 1.0,
+  profilesSampleRate: 1.0,
+  integrations: [
+    new ProfilingIntegration(),
+  ],
+  beforeSend(event, hint) {
+    // Não enviar erros 4xx para o Sentry
+    const error = hint.originalException;
+    if (error instanceof HttpError && error.statusCode < 500) {
+      return null;
+    }
+    return event;
+  }
+});
+
+function errorHandler(
+  error: any,
+  req: RequestServer,
+  res: ResponseServer,
+  next: () => void
+) {
+  // Adicionar contexto ao Sentry
+  Sentry.setContext("request", {
+    method: req.method,
+    url: req.url,
+    headers: req.headers,
+    ip: req.ip
+  });
+  
+  // Adicionar contexto de usuário se disponível
+  if ((req as any).user) {
+    Sentry.setUser({
+      id: (req as any).user.id,
+      email: (req as any).user.email
+    });
+  }
+  
+  // Capturar exceção
+  if (!(error instanceof HttpError) || error.statusCode >= 500) {
+    Sentry.captureException(error);
+  }
+  
+  // Enviar resposta
+  const statusCode = error instanceof HttpError ? error.statusCode : 500;
+  res.status(statusCode).json({
+    error: {
+      message: error.message,
+      code: error.name,
+      statusCode
+    }
+  });
+}
+```
+
+### Rastreamento Customizado de Erros
+
+```typescript
+interface ErrorLog {
+  timestamp: Date;
+  error: string;
+  stack?: string;
+  statusCode: number;
+  path: string;
+  method: string;
+  ip: string;
+  userId?: string;
+}
+
+class ErrorTracker {
+  private errors: ErrorLog[] = [];
+  private readonly maxSize = 1000;
+  
+  track(error: any, req: RequestServer) {
+    const log: ErrorLog = {
+      timestamp: new Date(),
+      error: error.message,
+      stack: error.stack,
+      statusCode: error instanceof HttpError ? error.statusCode : 500,
+      path: req.url,
+      method: req.method,
+      ip: req.ip || "unknown",
+      userId: (req as any).user?.id
+    };
+    
+    this.errors.push(log);
+    
+    // Manter apenas erros recentes
+    if (this.errors.length > this.maxSize) {
+      this.errors.shift();
+    }
+    
+    // Alertar sobre erros repetidos
+    this.checkForPatterns(log);
+  }
+  
+  private checkForPatterns(log: ErrorLog) {
+    const recentErrors = this.errors.filter(e => 
+      Date.now() - e.timestamp.getTime() < 60000 // Último minuto
+    );
+    
+    // Alertar se mesmo erro ocorre 10+ vezes em 1 minuto
+    const sameErrors = recentErrors.filter(e => 
+      e.error === log.error && e.path === log.path
+    );
+    
+    if (sameErrors.length >= 10) {
+      Logger.critical("Pico de erros detectado", {
+        error: log.error,
+        path: log.path,
+        count: sameErrors.length
+      });
+      
+      // Enviar alerta para equipe de operações
+      this.sendAlert(log, sameErrors.length);
+    }
+  }
+  
+  private sendAlert(log: ErrorLog, count: number) {
+    // Implementar alertas (Slack, email, PagerDuty, etc.)
+  }
+  
+  getRecentErrors(limit = 100): ErrorLog[] {
+    return this.errors.slice(-limit);
+  }
+}
+
+const errorTracker = new ErrorTracker();
+
+function errorHandler(
+  error: any,
+  req: RequestServer,
+  res: ResponseServer,
+  next: () => void
+) {
+  errorTracker.track(error, req);
+  
+  // ... resto do tratamento de erros
 }
 ```
 

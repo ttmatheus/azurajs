@@ -96,6 +96,7 @@ export class AzuraClient {
     this.server.on("request", this.handle.bind(this));
   }
 
+  public use(prefix: string, mw: RequestHandler): void;
   public use(mw: RequestHandler): void;
   public use(prefix: string, router: Router): void;
   public use(prefixOrMw: string | RequestHandler, router?: Router): void {

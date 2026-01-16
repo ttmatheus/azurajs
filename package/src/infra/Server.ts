@@ -97,9 +97,9 @@ export class AzuraClient {
   }
 
   public use(prefix: string, mw: RequestHandler): void;
-  public use(mw: RequestHandler): void;
-  public use(prefix: string, router: Router): void;
-  public use(prefixOrMw: string | RequestHandler, router?: Router): void {
+public use(mw: RequestHandler): void;
+public use(prefix: string, router: Router): void;
+public use(prefixOrMw: string | RequestHandler, router?: Router | RequestHandler): void {
     if (typeof prefixOrMw === "function") {
       this.middlewares.push(prefixOrMw);
     } else if (typeof prefixOrMw === "string" && router instanceof Router) {

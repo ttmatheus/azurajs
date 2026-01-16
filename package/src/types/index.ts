@@ -16,3 +16,5 @@ export type * from "./cookies.type";
 
 // Export Swagger types
 export type * from "./swagger.type";
+
+export type { NextFunction } from "../infra/utils/RequestHandler";

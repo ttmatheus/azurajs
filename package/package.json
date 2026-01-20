@@ -1,6 +1,6 @@
 {
   "name": "azurajs",
-  "version": "2.5.5",
+  "version": "2.5.5-1",
   "description": "Modern TypeScript-first web framework with decorator-based routing, zero dependencies, and built for performance",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -102,6 +102,9 @@
       "import": "./dist/swagger.js",
       "require": "./dist/swagger.cjs",
       "default": "./dist/swagger.js"
+    },
+    "./swagger-ui": {
+      "default": "./dist/shared/swagger/swagger-ui-modern.html"
     },
     "./package.json": "./package.json"
   },

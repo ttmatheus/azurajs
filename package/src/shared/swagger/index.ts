@@ -25,7 +25,7 @@ export class SwaggerIntegration {
     this.app.get(config.path, (_req: any, res: any) => {
       try {
         const require = createRequire(import.meta.url);
-        const htmlPath = require.resolve("azurajs/dist/shared/swagger/swagger-ui-modern.html");
+        const htmlPath = require.resolve("azurajs/swagger-ui");
 
         if (!existsSync(htmlPath)) throw new Error(`Swagger UI HTML not found at ${htmlPath}`);
 

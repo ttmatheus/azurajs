@@ -4,14 +4,15 @@
 
 ## 🐞 Bug Fixes
 
-- Correção de bugs menores reportados pela comunidade
-- Melhorias de estabilidade em rotas e middlewares
-- Ajustes em exemplos e documentação
+- Corrigido: decorators Swagger agora usam Symbols para evitar conflitos e vazamentos de metadata entre controllers.
+- Corrigido: responses, parameters e bodies do Swagger agora são corretamente isolados por método, evitando sobrescrita e bugs em múltiplos endpoints.
+- Corrigido: problemas de inferência de tipos e exemplos em parâmetros e bodies do Swagger.
 
 ## 🔧 Improvements
 
-- Pequenas otimizações internas
-- Refino em mensagens de erro
+- Refatoração do SwaggerGenerator para simplificar e otimizar a geração do OpenAPI.
+- Otimização na inferência de schemas e exemplos automáticos.
+- Melhoria nas mensagens de erro e documentação interna.
 
 ## 📦 Installation
 
@@ -31,8 +32,8 @@ Obrigado a todos que reportaram bugs e enviaram sugestões!
 
 ## 📊 Stats
 
-- **Bugfixes:** 3
-- **Melhorias:** 2
+- **Bugfixes:** 3 principais
+- **Melhorias:** 3
 
 ---
 

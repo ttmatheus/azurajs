@@ -26,15 +26,15 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        working-directory: package
+        working-directory: package/azurajs
         run: bun install
 
       - name: Build
-        working-directory: package
+        working-directory: package/azurajs
         run: bun run build
         
       - name: Publish to npm
-        working-directory: package
+        working-directory: package/azurajs
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

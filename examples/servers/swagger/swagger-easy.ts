@@ -251,7 +251,7 @@ setupSwaggerWithControllers(app, {
     { name: 'code-binary', description: 'Operações de codificação binária' },
     { name: 'Users', description: 'Gerenciamento de usuários' }
   ],
-  enabled: false
+  uiEnabled: false
 }, [BinaryController, UserController]);
 
 app.listen(3000).then(() => {
